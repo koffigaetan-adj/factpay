@@ -1,0 +1,24 @@
+{
+  "name": "factures-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/setup-db.js && next build",
+    "start": "next start",
+    "db:setup": "node scripts/setup-db.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@neondatabase/serverless": "^1.1.0",
+    "@vercel/blob": "^2.8.0",
+    "next": "^16.3.6",
+    "pdfkit": "^0.17.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
