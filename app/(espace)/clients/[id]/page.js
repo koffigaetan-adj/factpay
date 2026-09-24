@@ -11,6 +11,7 @@ import { listInvoices } from '@/lib/invoices';
 import { listDocuments } from '@/lib/documents';
 import { DocumentForm, DocumentList } from '@/components/Documents';
 import Modal from '@/components/Modal';
+import SubmitButton from '@/components/SubmitButton';
 
 export const metadata = { title: 'Client' };
 
@@ -40,12 +41,12 @@ export default async function Page({ params, searchParams }) {
           <form action={updateClient} className="stack">
             <input type="hidden" name="id" value={client.id} />
             <ClientFields c={client} />
-            <div><button>Enregistrer les modifications</button></div>
+            <div><SubmitButton pendingText="Enregistrement...">Enregistrer les modifications</SubmitButton></div>
           </form>
           {!invoices.length && (
             <form action={deleteClient} style={{ marginTop: 20 }}>
               <input type="hidden" name="id" value={client.id} />
-              <button className="danger">Supprimer ce client</button>
+              <SubmitButton className="danger" pendingText="Suppression...">Supprimer ce client</SubmitButton>
             </form>
           )}
         </section>

@@ -5,6 +5,8 @@ import Logo from '@/components/Logo';
 import Flash from '@/components/Flash';
 import { verifyLogin, resendLoginCode } from '@/app/actions';
 import { findChallenge } from '@/lib/twofa';
+import AuthAppBadge from '@/components/AuthAppBadge';
+import { authApp } from '@/lib/authenticators';
 
 export const metadata = { title: 'Vérification', robots: { index: false } };
 
@@ -21,8 +23,13 @@ export default async function Page({ searchParams }) {
         <p className="hint">
           {byEmail
             ? <>Un code à 6 chiffres vient d'être envoyé à <strong>{ch.email}</strong>. Pense à regarder dans les spams.</>
-            : "Ouvre ton application d'authentification et tape le code à 6 chiffres affiché pour FactPay."}
+            : ch.totp_app && ch.totp_app !== 'autre'
+              ? <>Ouvre <strong>{authApp(ch.totp_app).name}</strong> et tape le code à 6 chiffres affiché pour FactPay.</>
+              : "Ouvre ton application d'authentification et tape le code à 6 chiffres affiché pour FactPay."}
         </p>
+        {!byEmail && ch.totp_app && ch.totp_app !== 'autre' && (
+          <div className="auth-app"><AuthAppBadge app={ch.totp_app} size={36} /><strong>{authApp(ch.totp_app).name}</strong></div>
+        )}
         <Flash searchParams={searchParams} />
         <form action={verifyLogin} className="stack">
           <label>Code

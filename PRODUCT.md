@@ -20,7 +20,7 @@ Interface en français, tutoiement pour le freelance, vouvoiement dans ce que re
 
 ## Capabilities and Constraints
 - Comptes : prénom, nom, e-mail confirmé par lien, mot de passe robuste.
-- Factures : lignes (heures, jours, forfait…), TVA facultative, retenue (% du HT), numérotation sans trou (FAC-2612-0001 : préfixe, année + n° de compte, compteur), envoi immédiat / programmé / brouillon, PDF joint.
+- Factures : lignes (heures, jours, forfait…), TVA facultative, retenue (% du HT), numérotation sans trou (FAC-FP481-0001 : préfixe, FP + code du compte à partir de 481, compteur continu), envoi immédiat / programmé / brouillon, PDF joint.
 - Devises : XOF, XAF, EUR, USD, GBP, CAD, CHF, GHS, NGN, MAD ; conversion affichée au client (parité fixe pour € / F CFA, taux saisi sinon).
 - Page client : bascule de devise, téléchargement du PDF, signalement du paiement avec référence et justificatif.
 - Tableau de bord : à encaisser, encaissé, net, part mise de côté pour les impôts, retenues.

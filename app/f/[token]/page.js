@@ -6,7 +6,9 @@ import { getInvoiceByToken, issuedCompany, isQuote } from '@/lib/invoices';
 import { money, altMoney, short, num, rateLabel, fixedRate } from '@/lib/money';
 import { frDate } from '@/lib/dates';
 import { logoUrl } from '@/lib/url';
-import { paymentLines } from '@/lib/payment';
+import { paymentItems } from '@/lib/payment';
+import BrandBadge from '@/components/BrandBadge';
+import SubmitButton from '@/components/SubmitButton';
 import Logo from '@/components/Logo';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
 
@@ -48,8 +50,8 @@ export default async function Page({ params, searchParams }) {
           <label>Nom et prénom du signataire<input name="signed_by" maxLength={120} autoComplete="name" placeholder="Ex. Afi Mensah, directrice" /></label>
           <label className="check"><input type="checkbox" name="agree" /><span>Bon pour accord : j'accepte ce devis de {co.name} pour un montant de {money(inv.amount_due, cur)}.</span></label>
           <div className="answer">
-            <button name="answer" value="accepter">Signer et accepter le devis</button>
-            <button name="answer" value="refuser" className="secondary" formNoValidate>Refuser</button>
+            <SubmitButton name="answer" value="accepter" pendingText="Signature...">Signer et accepter le devis</SubmitButton>
+            <SubmitButton name="answer" value="refuser" className="secondary" formNoValidate pendingText="Refus...">Refuser</SubmitButton>
           </div>
         </form>
       );
@@ -81,7 +83,7 @@ export default async function Page({ params, searchParams }) {
         <label>Justificatif <span className="help">image ou PDF, 4 Mo maximum</span>
           <input name="justificatif" type="file" accept="image/*,application/pdf" required />
         </label>
-        <button>Signaler la facture comme payée</button>
+        <SubmitButton pendingText="Signalement...">Signaler la facture comme payée</SubmitButton>
       </form>
     );
   }
@@ -139,11 +141,13 @@ export default async function Page({ params, searchParams }) {
         {withAlt && (
           <p className="rate">
             soit <span className="m-main">{altMoney(inv.amount_due, inv)}</span><span className="m-alt">{money(inv.amount_due, cur)}</span>.
-            {' '}{fixedRate(cur, inv.alt_currency) ? 'Parité fixe' : 'Taux appliqué'} : {rateLabel(cur, inv.alt_currency, inv.alt_rate)}.
+            {' '}Taux : {rateLabel(cur, inv.alt_currency, inv.alt_rate)}.
           </p>
         )}
         {!quote && inv.status !== 'annulee' && <ul className="bank">
-          {paymentLines(co).map(([label, value]) => <li key={label + value}>{label} : <strong>{value}</strong></li>)}
+          {paymentItems(co).map((p) => (
+            <li key={p.label + p.value} className="pay-item"><BrandBadge name={p.brand} size={26} /><span>{p.label} : <strong>{p.value}</strong></span></li>
+          ))}
           <li>Référence à indiquer : <strong>{inv.number}</strong></li>
         </ul>}
         {inv.notes && <p className="muted">{inv.notes}</p>}
@@ -159,7 +163,7 @@ export default async function Page({ params, searchParams }) {
         <form action={contactCompany} className="stack">
           <input type="hidden" name="token" value={inv.token} />
           <label>Votre message<textarea name="message" rows={3} required minLength={3} maxLength={2000} placeholder="Ex. Pouvez-vous ajouter notre numéro de bon de commande ?" /></label>
-          <div><button className="secondary">Envoyer le message</button></div>
+          <div><SubmitButton className="secondary" pendingText="Envoi...">Envoyer le message</SubmitButton></div>
         </form>
       </section>
       <a href="/" className="made-with">Facture émise avec <Logo height={22} /></a>

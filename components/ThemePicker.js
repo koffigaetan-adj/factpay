@@ -3,9 +3,9 @@
 import { setTheme } from '@/app/actions';
 
 const CHOICES = [
-  ['auto', 'Automatique', "Suit le réglage de l'appareil"],
-  ['light', 'Clair', 'Toujours clair'],
+  ['light', 'Clair', 'Bleu et blanc (par défaut)'],
   ['dark', 'Sombre', 'Toujours sombre'],
+  ['auto', 'Automatique', "Suit le réglage de l'appareil"],
 ];
 
 // Choix de l'apparence : enregistré dès qu'on clique (le bouton reste pour le clavier et sans JavaScript)

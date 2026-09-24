@@ -35,7 +35,10 @@ test('parité fixe € / F CFA et taux saisi', () => {
   assert.equal(fixedRate('XOF', 'XAF'), 1);
   assert.equal(fixedRate('USD', 'XOF'), null);
   assert.equal(convert(1000, fixedRate('EUR', 'XOF'), 'XOF'), 655957);
-  assert.equal(nbsp(rateLabel('XOF', 'EUR', fixedRate('XOF', 'EUR'))), '1 € = 655,957 F CFA');
+  // Affichage arrondi, calcul exact
+  assert.equal(nbsp(rateLabel('XOF', 'EUR', fixedRate('XOF', 'EUR'))), '1 € ≈ 656 F CFA (parité fixe 655,957)');
+  assert.equal(nbsp(rateLabel('USD', 'XOF', 604.37)), '1 $ US ≈ 604 F CFA');
+  assert.equal(nbsp(rateLabel('GBP', 'EUR', 1.1734)), '1 £ ≈ 1,17 €');
   assert.equal(nbsp(rateLabel('USD', 'XOF', 600)), '1 $ US = 600 F CFA');
 });
 

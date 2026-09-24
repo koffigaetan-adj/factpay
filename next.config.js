@@ -8,7 +8,7 @@ const nextConfig = {
   serverExternalPackages: ['pdfkit', '@electric-sql/pglite'],
   // Les polices standard de pdfkit (fichiers .afm) sont lues sur le disque : on les emporte sur Vercel
   outputFileTracingIncludes: {
-    '/**': ['./node_modules/pdfkit/js/data/**'],
+    '/**': ['./node_modules/pdfkit/js/data/**', './public/brands/**'],
   },
   experimental: {
     // Justificatifs de paiement jusqu'à 4 Mo (limite des fonctions Vercel : 4,5 Mo)

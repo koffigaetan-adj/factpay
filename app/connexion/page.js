@@ -5,6 +5,7 @@ import Flash from '@/components/Flash';
 import { login } from '@/app/actions';
 import { currentUser } from '@/lib/auth';
 import SubmitButton from '@/components/SubmitButton';
+import PasswordInput from '@/components/PasswordInput';
 
 export const metadata = { title: 'Connexion' };
 
@@ -19,7 +20,7 @@ export default async function Page({ searchParams }) {
         <Flash searchParams={searchParams} />
         <form action={login} className="stack">
           <label>Adresse e-mail<input name="email" type="email" required autoComplete="email" autoFocus /></label>
-          <label>Mot de passe<input name="password" type="password" required autoComplete="current-password" /></label>
+          <PasswordInput />
           <SubmitButton pendingText="Connexion...">Se connecter</SubmitButton>
         </form>
         <p className="below"><Link href="/mot-de-passe-oublie">Mot de passe oublié ?</Link></p>

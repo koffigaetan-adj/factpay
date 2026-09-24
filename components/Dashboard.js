@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Icon from '@/components/Icon';
 import InvoiceTable from '@/components/InvoiceTable';
 import { money, moneyAlt, round2, roundFor, fixedRate } from '@/lib/money';
 import { today, frDate } from '@/lib/dates';
@@ -89,53 +90,61 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
 
       {todo.length > 0 && (
         <section className="todo" aria-labelledby="todo-title">
-          <h2 id="todo-title">À faire</h2>
-          <ul>
+          <h2 id="todo-title" style={{ marginBottom: '16px', fontSize: '18px' }}>À faire</h2>
+          <div className="todo-stack">
             {todo.map((t) => (
-              <li key={t.label}>
-                <Link href={t.href}>
-                  <span className={`status ${t.cls}`}>{t.label}</span>
-                  <span className="muted">{t.detail}</span>
-                  <span className="go" aria-hidden="true">→</span>
-                </Link>
-              </li>
+              <Link key={t.label} href={t.href} className={`todo-card ${t.cls}`}>
+                <div className="todo-content">
+                  <span className="todo-label">{t.label}</span>
+                  <span className="todo-detail">{t.detail}</span>
+                </div>
+                <span className="todo-go" aria-hidden="true">→</span>
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       )}
 
       <div className="dash">
-        <section className="dash-net" aria-labelledby="net-title">
-          <h2 id="net-title">Ton net en {year}</h2>
+        <section className="dash-card dash-net" aria-labelledby="net-title">
+          <div className="dash-card-header">
+            <div className="dash-card-icon"><Icon name="dashboard" size={20} /></div>
+            <h2 id="net-title" style={{ margin: 0 }}>Ton net en {year}</h2>
+          </div>
           <p className="net-figure">{money(net, cur)}</p>
-          {company.show_alt_currency && moneyAlt(net, cur) && <p className="sub">soit {moneyAlt(net, cur)}</p>}
+          {company.show_alt_currency && moneyAlt(net, cur) && <p className="dash-sub">soit {moneyAlt(net, cur)}</p>}
           <dl className="calc">
             <div><dt>Encaissé</dt><dd>{money(cashed, cur)}</dd></div>
             <div>
-              <dt>Retenue à la source<span className="sub">déjà versée aux impôts par tes clients{withheldPending > 0 ? ` · + ${money(withheldPending, cur)} sur les factures en attente` : ''}</span></dt>
+              <dt>Retenue à la source<span className="sub">déjà versée aux impôts par tes clients{withheldPending > 0 ? ` · + ${money(withheldPending, cur)} sur factures en attente` : ''}</span></dt>
               <dd className="muted">{money(withheld, cur)}</dd>
             </div>
             {company.tax_reserve_rate > 0 && (
-              <div><dt>À mettre de côté pour les impôts<span className="sub">{company.tax_reserve_rate} % du HT{withheld > 0 ? ', moins les retenues' : ''}</span></dt><dd>− {money(reserve, cur)}</dd></div>
+              <div><dt>À mettre de côté pour les impôts<span className="sub">{company.tax_reserve_rate} % du HT{withheld > 0 ? ', moins retenues' : ''}</span></dt><dd>− {money(reserve, cur)}</dd></div>
             )}
             {vatDue > 0 && <div><dt>TVA à reverser</dt><dd>− {money(vatDue, cur)}</dd></div>}
             <div className="calc-total"><dt>Net pour toi</dt><dd>{money(net, cur)}</dd></div>
           </dl>
           {company.tax_reserve_rate === 0 && (
-            <p className="help" style={{ marginBottom: 0 }}>Indique dans <Link href="/parametres">Paramètres</Link> le pourcentage à garder pour tes impôts : il sera retiré ici.</p>
+            <p className="help" style={{ marginBottom: 0, marginTop: '12px' }}>Indique dans <Link href="/parametres">Paramètres</Link> le pourcentage à garder pour tes impôts : il sera retiré ici.</p>
           )}
         </section>
 
-        <section className="dash-open" aria-labelledby="open-title">
-          <h2 id="open-title">À encaisser</h2>
+        <section className="dash-card dash-open" aria-labelledby="open-title">
+          <div className="dash-card-header">
+            <div className="dash-card-icon" style={{ background: 'color-mix(in srgb, var(--ink) 10%, transparent)', color: 'var(--ink)' }}><Icon name="report" size={20} /></div>
+            <h2 id="open-title" style={{ margin: 0 }}>À encaisser</h2>
+          </div>
           <p className="open-figure">{money(toCollect, cur)}</p>
-          {company.show_alt_currency && toCollect > 0 && moneyAlt(toCollect, cur) && <p className="sub">soit {moneyAlt(toCollect, cur)}</p>}
+          {company.show_alt_currency && toCollect > 0 && moneyAlt(toCollect, cur) && <p className="dash-sub">soit {moneyAlt(toCollect, cur)}</p>}
           <dl className="calc">
             <div><dt><span className="status wait">Dans les temps</span></dt><dd>{money(sum(onTime, 'amount_due'), cur)}</dd></div>
             <div><dt><span className="status check">Paiement signalé</span></dt><dd>{money(sum(open.filter((i) => i.status === 'signalee'), 'amount_due'), cur)}</dd></div>
             <div><dt><span className="status late">En retard</span></dt><dd>{money(sum(late, 'amount_due'), cur)}</dd></div>
           </dl>
-          <Link href="/factures?filtre=attente">Voir les factures en attente</Link>
+          <div style={{ marginTop: '20px' }}>
+            <Link className="button secondary" href="/factures?filtre=attente">Voir les factures en attente</Link>
+          </div>
         </section>
 
         <section className="dash-chart" aria-labelledby="chart-title">

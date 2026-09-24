@@ -103,3 +103,18 @@ test('vérification : code posé à l\'émission, document retrouvé, empreinte 
   const { invoicePdf } = await import('../lib/pdf.js');
   assert.equal((await invoicePdf(f, c)).subarray(0, 4).toString(), '%PDF');
 });
+
+test('numérotation : FP481 puis FP482 pour le compte suivant, compteur continu d\'une année sur l\'autre', async () => {
+  assert.equal(c.fp_code, 481);
+  const u2 = await one("INSERT INTO users (email, name, password_hash) VALUES ('deux@x.tg', 'Deux', 'x') RETURNING id");
+  const c2 = await one("INSERT INTO companies (owner_id, name, currency) VALUES ($1, 'Autre', 'XOF') RETURNING *", [u2.id]);
+  assert.equal(c2.fp_code, 482);
+  const cl2 = (await one("INSERT INTO clients (company_id, name, email) VALUES ($1, 'Cli', 'c@x.com') RETURNING id", [c2.id])).id;
+  const a = await inv.saveDraft(c2, { ...base, client_id: cl2, lines });
+  await inv.sendInvoice(c2, a);
+  assert.equal((await inv.getInvoice(c2.id, a)).number, 'FAC-FP482-0001');
+  await q('UPDATE companies SET invoice_seq_year = invoice_seq_year - 1 WHERE id = $1', [c2.id]); // on change d'année
+  const b = await inv.saveDraft(c2, { ...base, client_id: cl2, lines });
+  await inv.sendInvoice(c2, b);
+  assert.equal((await inv.getInvoice(c2.id, b)).number, 'FAC-FP482-0002', 'pas de remise à zéro au 1er janvier');
+});

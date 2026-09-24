@@ -43,7 +43,7 @@ const LOCAL = [
   { specimen: '1 € = 655,957 F CFA', title: 'La conversion à la parité fixe', text: "Ton client voit le montant dans les deux devises et bascule d'un clic. Pour le dollar, tu indiques le taux du jour." },
   { specimen: 'Flooz · Mixx by Yas · SPI', title: 'Les moyens de paiement d\'ici', text: 'Tes numéros Mobile Money, ton RIB et ton alias SPI de la BCEAO figurent sur la facture et dans l\'e-mail.' },
   { specimen: 'Retenue à la source 5 %', title: 'La retenue, déduite du net', text: 'Le client voit ce qu\'il retient et le net exact à te verser. Rien à recalculer à la main.' },
-  { specimen: 'NIF · RCCM', title: 'Tes mentions légales', text: 'Tes identifiants apparaissent sur chaque facture, numérotée sans trou : FAC-2612-0001, 0002…' },
+  { specimen: 'NIF · RCCM', title: 'Tes mentions légales', text: 'Tes identifiants apparaissent sur chaque facture, numérotée sans trou : FAC-FP481-0001, 0002…' },
 ];
 
 // Tableau de bord d'exemple (fictif) : de ce qui est facturé à ce qui te reste
@@ -92,7 +92,7 @@ export default async function Home({ searchParams }) {
             <article className="demo-sheet">
               <header>
                 <div>
-                  <strong className="demo-title">Facture FAC-2612-0014</strong>
+                  <strong className="demo-title">Facture FAC-FP481-0014</strong>
                   <span className="sub">À payer avant le 15 octobre 2026</span>
                 </div>
                 <address><strong>Studio Kodjo</strong><br />Lomé, Togo<br />NIF 1000000000</address>
@@ -115,7 +115,7 @@ export default async function Home({ searchParams }) {
                 <div><dt>Retenue à la source (5 % du HT)</dt><dd><Amount n={T.withholding} minus /></dd></div>
                 <div className="due"><dt>Net à payer</dt><dd><Amount n={T.due} /></dd></div>
               </dl>
-              <p className="demo-pay">Flooz +228 90 00 00 00 · Mixx by Yas +228 70 00 00 00 · Référence FAC-2612-0014</p>
+              <p className="demo-pay">Flooz +228 90 00 00 00 · Mixx by Yas +228 70 00 00 00 · Référence FAC-FP481-0014</p>
               <div className="demo-cta" aria-hidden="true">Signaler la facture comme payée</div>
             </article>
           </figure>
@@ -173,7 +173,6 @@ export default async function Home({ searchParams }) {
 
       <section className="land-close" aria-labelledby="close-title">
         <div className="close-inner">
-          <Logo onDark height={56} />
           <h2 id="close-title">Ta prochaine facture part en une minute.</h2>
           <p>Crée ton compte, renseigne ton entreprise, ajoute ton client. C'est tout.</p>
           <Link className="button big light" href="/inscription">Créer mon compte, gratuit pour commencer</Link>

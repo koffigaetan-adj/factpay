@@ -28,7 +28,8 @@ test('numérotation sans trou et coordonnées figées à l\'émission', async ()
   await inv.sendInvoice(c, a);
   await inv.sendInvoice(c, b);
   const [fa, fb] = [await inv.getInvoice(c.id, a), await inv.getInvoice(c.id, b)];
-  const code = `${String(new Date().getUTCFullYear()).slice(-2)}${c.owner_id}`; // année sur 2 chiffres + n° du compte
+  const code = `FP${c.fp_code}`; // « FP » + code du compte (481 pour le premier)
+  assert.equal(c.fp_code, 481, 'le premier compte reçoit le code 481');
   assert.equal(fa.number, `FAC-${code}-0001`);
   assert.equal(fb.number, `FAC-${code}-0002`);
   await q("UPDATE clients SET name = 'Autre nom' WHERE id = $1", [clientId]);
@@ -54,7 +55,7 @@ test('annulation : avoir numéroté et PDF', async () => {
   const r = await inv.cancelInvoice(c, id, 'Erreur');
   assert.ok(r.cancelled);
   const f = await inv.getInvoice(c.id, id);
-  assert.match(f.credit_number, /^AV-\d{3,}-0001$/);
+  assert.match(f.credit_number, /^AV-FP\d{3,}-0001$/);
   const file = await pdf.creditNotePdf(f, c);
   assert.equal(file.subarray(0, 4).toString(), '%PDF');
   // Une facture payée ou annulée ne s'annule plus
@@ -86,7 +87,7 @@ test('devis : numéro, acceptation par le client, transformation en facture', as
   const id = await newInvoice({ doc_type: 'devis' });
   await inv.sendInvoice(c, id);
   let d = await inv.getInvoice(c.id, id);
-  assert.match(d.number, /^DEV-\d{3,}-0001$/);
+  assert.match(d.number, /^DEV-FP\d{3,}-0001$/);
   assert.ok(!(await inv.listInvoices(c.id)).some((x) => x.id === id), 'un devis ne figure pas dans les factures');
   await inv.answerQuote(d.token, true);
   const invoiceId = await inv.convertQuote(c, id);

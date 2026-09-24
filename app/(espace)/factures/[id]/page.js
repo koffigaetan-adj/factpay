@@ -11,7 +11,7 @@ import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages, isQuote, remin
 import { money, altMoney, num, rateLabel } from '@/lib/money';
 import { frDate, today } from '@/lib/dates';
 import { paymentMethodOptions, whatsappLink } from '@/lib/payment';
-import { Icon } from '@/components/AppShell';
+import Icon from '@/components/Icon';
 import { shiftPeriod, describePeriod } from '@/lib/period';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
 import { statusOf } from '@/lib/status';
@@ -32,7 +32,7 @@ export default async function Page({ params, searchParams }) {
   const cur = inv.currency;
   const editable = EDITABLE.includes(inv.status);
   const hidden = <input type="hidden" name="id" value={inv.id} />;
-  const messages = inv.number ? await listMessages(inv.id) : [];
+  const messagesPromise = inv.number ? listMessages(inv.id) : Promise.resolve([]);
   const open = ['emise', 'envoyee'].includes(inv.status);
   const late = !quote && open && inv.due_date && inv.due_date < today();
   const canResend = quote ? ['brouillon', 'emise', 'envoyee'].includes(inv.status) : !['payee', 'annulee'].includes(inv.status);
@@ -47,6 +47,7 @@ export default async function Page({ params, searchParams }) {
       : `Bonjour ${inv.client_name}, voici la facture ${inv.number} de ${money(inv.amount_due, cur)}, à régler avant le ${frDate(inv.due_date)}. Vous pouvez la consulter et signaler votre paiement ici : ${payUrl(inv)}`,
   company.country);
 
+  const messages = await messagesPromise;
   return (
     <>
       <div className="page-head">

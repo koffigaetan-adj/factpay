@@ -18,6 +18,7 @@ import { cleanPeriod, periodHours } from '@/lib/period';
 import * as documents from '@/lib/documents';
 import * as accountant from '@/lib/accountant';
 import { COUNTRIES, cleanMobiles } from '@/lib/payment';
+import { AUTH_APPS } from '@/lib/authenticators';
 
 // Revient sur une page avec un message (?ok=… ou ?erreur=…)
 function back(path, message, error = false) {
@@ -164,7 +165,7 @@ export async function enableEmail2fa(fd) {
   const user = await auth.requireUser();
   await requirePassword(fd, user);
   const { codes, hashes } = twofa.newBackupCodes();
-  await q(`UPDATE users SET twofa_method = 'email', totp_secret = NULL, totp_pending = NULL, backup_codes = $1 WHERE id = $2`, [JSON.stringify(hashes), user.id]);
+  await q(`UPDATE users SET twofa_method = 'email', totp_secret = NULL, totp_pending = NULL, totp_app = '', backup_codes = $1 WHERE id = $2`, [JSON.stringify(hashes), user.id]);
   await showBackupCodesOnce(codes);
   await notifySecurity(user, 'Double authentification activée (code par e-mail)');
   back('/parametres?onglet=securite', 'Double authentification activée : un code te sera envoyé par e-mail à chaque connexion.');
@@ -186,8 +187,9 @@ export async function confirmTotpSetup(fd) {
   const step = verifyCode(twofa.decrypt(row.totp_pending), text(fd, 'code', 10));
   if (step === null) back('/parametres?onglet=securite&etape=application', 'Code incorrect. Vérifie l\'heure de ton téléphone et réessaie avec le code affiché.', true);
   const { codes, hashes } = twofa.newBackupCodes();
-  await q(`UPDATE users SET twofa_method = 'totp', totp_secret = totp_pending, totp_pending = NULL, totp_last_step = $1, backup_codes = $2 WHERE id = $3`,
-    [step, JSON.stringify(hashes), user.id]);
+  const app = AUTH_APPS.some((a) => a.id === fd.get('app')) ? fd.get('app') : 'autre';
+  await q(`UPDATE users SET twofa_method = 'totp', totp_secret = totp_pending, totp_pending = NULL, totp_last_step = $1, backup_codes = $2, totp_app = $4 WHERE id = $3`,
+    [step, JSON.stringify(hashes), user.id, app]);
   await showBackupCodesOnce(codes);
   await notifySecurity(user, 'Double authentification activée (application)');
   back('/parametres?onglet=securite', 'Double authentification activée : ton application te donnera un code à chaque connexion.');
@@ -210,7 +212,7 @@ export async function hideBackupCodes() {
 export async function disable2fa(fd) {
   const user = await auth.requireUser();
   await requirePassword(fd, user);
-  await q(`UPDATE users SET twofa_method = '', totp_secret = NULL, totp_pending = NULL, backup_codes = '[]' WHERE id = $1`, [user.id]);
+  await q(`UPDATE users SET twofa_method = '', totp_secret = NULL, totp_pending = NULL, backup_codes = '[]', totp_app = '' WHERE id = $1`, [user.id]);
   await notifySecurity(user, 'Double authentification désactivée');
   back('/parametres?onglet=securite', 'Double authentification désactivée.');
 }
@@ -376,23 +378,19 @@ export async function requestEmailChange(fd) {
 // Suppression du compte et de toutes ses données (entreprise, clients, factures)
 export async function deleteAccount(fd) {
   const user = await auth.requireUser();
-  const tab = '/parametres?onglet=compte';
-  if (text(fd, 'confirm_word', 20).toUpperCase() !== 'SUPPRIMER') back(tab, 'Tape SUPPRIMER pour confirmer.', true);
-  const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
-  if (!(await auth.checkPassword(String(fd.get('password') || ''), row.password_hash))) back(tab, 'Mot de passe incorrect.', true);
   await auth.endSession();
   await q('DELETE FROM users WHERE id = $1', [user.id]);
   redirect('/?compte=supprime');
 }
 
-// Apparence : automatique (appareil), claire ou sombre. Gardée un an dans ce navigateur.
+// Apparence : claire (par défaut), sombre, ou automatique (appareil). Gardée un an dans ce navigateur.
 export async function setTheme(fd) {
-  const theme = ['light', 'dark'].includes(fd.get('theme')) ? String(fd.get('theme')) : 'auto';
+  const theme = ['auto', 'dark'].includes(fd.get('theme')) ? String(fd.get('theme')) : 'light';
   const jar = await cookies();
-  if (theme === 'auto') jar.delete('theme');
+  if (theme === 'light') jar.delete('theme');
   else jar.set('theme', theme, { path: '/', maxAge: 365 * 86400, sameSite: 'lax' });
   revalidatePath('/', 'layout');
-  back('/parametres?onglet=apparence', 'Apparence enregistrée.');
+  back('/parametres?onglet=compte', 'Apparence enregistrée.');
 }
 
 // Photo de profil : PNG, JPEG ou WebP, 1 Mo au plus ; ou retour à l'icône par défaut

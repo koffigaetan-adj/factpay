@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Flash from '@/components/Flash';
 import { requestPasswordReset } from '@/app/actions';
+import SubmitButton from '@/components/SubmitButton';
 
 export const metadata = { title: 'Mot de passe oublié' };
 
@@ -15,7 +16,7 @@ export default function Page({ searchParams }) {
         <Flash searchParams={searchParams} />
         <form action={requestPasswordReset} className="stack">
           <label>Adresse e-mail<input name="email" type="email" required autoComplete="email" autoFocus /></label>
-          <button>Recevoir le lien</button>
+          <SubmitButton pendingText="Envoi...">Recevoir le lien</SubmitButton>
         </form>
       </div>
       <p className="below"><Link href="/connexion">Retour à la connexion</Link></p>

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { saveAvatar } from '@/app/actions';
-import { Icon } from '@/components/AppShell';
+import Icon from '@/components/Icon';
 
 // Photo de profil : on clique sur la pastille pour choisir une image, elle s'enregistre aussitôt.
 // « Supprimer la photo » remet l'icône par défaut (le fichier est effacé définitivement).

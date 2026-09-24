@@ -11,8 +11,8 @@ export default function AccountantSettings({ company }) {
   const link = token ? `${appUrl()}/comptable/${token}` : null;
   return (
     <div className="settings-grid">
-      <section>
-        <h2>Accès pour ton comptable</h2>
+      <section className="card" style={{ padding: '24px' }}>
+        <h3 style={{ marginTop: 0 }}>Accès pour ton comptable</h3>
         <p className="hint">Ton comptable voit tes factures, avoirs et devis, le récapitulatif de l'année et peut tout exporter et télécharger en PDF. Il ne peut <strong>rien modifier</strong> et n'a pas besoin de compte.</p>
         {link ? (
           <div className="stack">
@@ -29,8 +29,8 @@ export default function AccountantSettings({ company }) {
         )}
       </section>
       {link && (
-        <section>
-          <h2>Couper l'accès</h2>
+        <section className="card danger-zone" style={{ padding: '24px' }}>
+          <h3 style={{ marginTop: 0, color: 'inherit' }}>Couper l'accès</h3>
           <p className="hint">Fin de mission, lien partagé par erreur : désactive-le. Un nouveau lien, différent, pourra être créé ensuite.</p>
           <form action={revokeAccountantAccess}><button className="danger">Désactiver le lien</button></form>
         </section>

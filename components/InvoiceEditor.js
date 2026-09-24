@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CURRENCIES, money, totals, fixedRate, convert, rateLabel, short, isPrime } from '@/lib/money';
 import { periodHours } from '@/lib/period';
 import PeriodPicker, { newPeriod } from '@/components/PeriodPicker';
 import { saveInvoice } from '@/app/actions';
+import SubmitButton from '@/components/SubmitButton';
+import Icon from '@/components/Icon';
 
 const UNITS = ['heure(s)', 'jour(s)', 'forfait', 'unité(s)', 'mois'];
 const key = () => Math.random();
@@ -20,7 +22,10 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
     ? invoice.lines.map((l) => ({ key: l.id, kind: l.kind || 'service', description: l.description, quantity: String(l.quantity), unit: l.unit, unit_price: String(l.unit_price) }))
     : [emptyLine()]));
   const [period, setPeriod] = useState(invoice?.period || null);
-  const [vat, setVat] = useState(String(invoice?.vat_rate ?? defaultVat ?? 0));
+  // TVA : activée si la facture en a déjà une (ou si un taux par défaut est réglé) ; le taux se garde quand on la coupe
+  const initialVat = Number(invoice?.id ? invoice.vat_rate : defaultVat) || 0;
+  const [vatOn, setVatOn] = useState(initialVat > 0);
+  const [vat, setVat] = useState(String(initialVat || 18));
   const [whOn, setWhOn] = useState((invoice?.withholding_rate ?? 0) > 0);
   const [wh, setWh] = useState(String(invoice?.withholding_rate || 5));
   const [whLabel, setWhLabel] = useState(invoice?.withholding_label || 'Retenue à la source');
@@ -41,9 +46,26 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
     unit_price: toNumber(l.unit_price),
   }));
   const whRate = whOn ? toNumber(wh) : 0;
-  const t = totals(numeric, toNumber(vat), whRate, currency);
+  const vatRate = vatOn ? toNumber(vat) : 0;
+  const t = totals(numeric, vatRate, whRate, currency);
   const fixed = alt ? fixedRate(currency, alt) : null;
   const rate = fixed ?? toNumber(manualRate);
+
+  // Taux du jour récupéré automatiquement pour les devises sans parité fixe (modifiable à la main)
+  const [live, setLive] = useState(null); // { rate, date, source } ou { error }
+  const fetchRate = async (force = false) => {
+    if (!alt || fixed) return;
+    setLive({ loading: true });
+    try {
+      const r = await fetch(`/api/taux?de=${currency}&vers=${alt}`).then((res) => res.json());
+      if (r.error) throw new Error(r.error);
+      setLive(r);
+      if (force || !manualRate) setManualRate(String(r.rate).replace('.', ','));
+    } catch (err) {
+      setLive({ error: "Taux du jour indisponible pour l'instant : saisis-le à la main." });
+    }
+  };
+  useEffect(() => { fetchRate(); }, [currency, alt]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasPrime = lines.some(isPrime);
 
   const togglePeriod = (on) => {
@@ -78,6 +100,9 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
       <input type="hidden" name="withholding_rate" value={whRate} />
 
       <section className="stack">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Icon name="people" /> Client
+        </h2>
         <div className="row">
           <label>Client
             <select name="client_id" required defaultValue={invoice?.client_id ?? ''}>
@@ -89,39 +114,54 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
             <input name="title" maxLength={200} defaultValue={invoice?.title} placeholder="Ex. Développement du site, septembre" />
           </label>
         </div>
-        <div className="row3">
-          <label>Devise de la facture
-            <select name="currency" value={currency} onChange={(e) => pickCurrency(e.target.value)}>
-              {Object.entries(CURRENCIES).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-            </select>
-          </label>
-          <label>Montant converti en <span className="help">affiché au client</span>
-            <select name="alt_currency" value={alt} onChange={(e) => { setAlt(e.target.value); setManualRate(''); }}>
-              <option value="">Pas de conversion</option>
-              {Object.entries(CURRENCIES).filter(([code]) => code !== currency).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-            </select>
-          </label>
-          {alt && (fixed ? (
-            <div className="rate-fixed"><span className="help">Taux</span>{rateLabel(currency, alt, fixed)}<span className="help">parité fixe</span></div>
-          ) : (
-            <label>Taux du jour <span className="help">1 {short(currency)} = … {short(alt)}</span>
-              <input name="alt_rate" inputMode="decimal" required value={manualRate} onChange={(e) => setManualRate(e.target.value)} placeholder="Ex. 600" />
+        <details className="advanced-options" style={{ marginTop: '8px' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="settings" size={16} /> Paramètres avancés (Devise et taux)
+          </summary>
+          <div className="row3" style={{ marginTop: '16px' }}>
+            <label>Devise de la facture
+              <select name="currency" value={currency} onChange={(e) => pickCurrency(e.target.value)}>
+                {Object.entries(CURRENCIES).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </select>
             </label>
-          ))}
-        </div>
+            <label>Montant converti en <span className="help">affiché au client</span>
+              <select name="alt_currency" value={alt} onChange={(e) => { setAlt(e.target.value); setManualRate(''); }}>
+                <option value="">Pas de conversion</option>
+                {Object.entries(CURRENCIES).filter(([code]) => code !== currency).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </select>
+            </label>
+            {alt && (fixed ? (
+              <div className="rate-fixed"><span className="help">Taux</span>{rateLabel(currency, alt, fixed)}</div>
+            ) : (
+              <div className="rate-live">
+                <label>Taux du jour <span className="help">1 {short(currency)} = … {short(alt)}</span>
+                  <input name="alt_rate" inputMode="decimal" required value={manualRate} onChange={(e) => setManualRate(e.target.value)} placeholder="Ex. 600" />
+                </label>
+                <span className="help">
+                  {live?.loading && 'Recherche du taux du jour…'}
+                  {live?.error}
+                  {live?.rate && <>≈ {rateLabel(currency, alt, toNumber(manualRate) || live.rate)} · source {live.source}{live.date ? `, ${new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(new Date(live.date))}` : ''}</>}
+                  {!live?.loading && <> · <button type="button" className="link" onClick={() => fetchRate(true)}>Actualiser</button></>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
       </section>
 
       <section className="stack">
-        <label className="check switch-row">
-          <input type="checkbox" checked={hasPeriod} onChange={(e) => togglePeriod(e.target.checked)} />
+        <label className="switch-row">
           <span><strong>Facturer une période travaillée</strong><br />
-            <span className="help">Choisis le mois ou les jours travaillés : les heures se calculent toutes seules (jours × heures par jour).</span></span>
+            <span className="help" style={{ display: 'block', marginTop: '4px' }}>Choisis le mois ou les jours travaillés : les heures se calculent toutes seules.</span></span>
+          <input type="checkbox" checked={hasPeriod} onChange={(e) => togglePeriod(e.target.checked)} />
         </label>
         {hasPeriod && period && <PeriodPicker value={period} onChange={setPeriod} />}
       </section>
 
       <section>
-        <h2>Lignes</h2>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Icon name="invoice" /> Lignes
+        </h2>
         <div className="scroll">
           <table className="lines-edit">
             <thead>
@@ -176,38 +216,60 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
           <button type="button" className="secondary" onClick={() => setLines((ls) => [...ls, primeLine()])}>Ajouter une prime</button>
         </div>
 
-        <div className="sum">
-          <div>
-            <label htmlFor="vat">TVA (%)</label>
-            <input id="vat" name="vat_rate" inputMode="decimal" value={vat} onChange={(e) => setVat(e.target.value)} className="pct" />
-          </div>
-          {t.vat > 0 && <div><span>Total HT</span><span>{money(t.subtotal, currency)}</span></div>}
-          {t.vat > 0 && <div><span>TVA</span><span>{money(t.vat, currency)}</span></div>}
-          <div className="total"><span>Total{t.vat > 0 ? ' TTC' : ''}</span><span>{money(t.total, currency)}</span></div>
-
-          <label className="check wh-toggle">
-            <input type="checkbox" checked={whOn} onChange={(e) => setWhOn(e.target.checked)} />
-            <span>Le client applique une retenue</span>
-          </label>
-          {whOn && (
-            <div className="wh-box">
-              <input name="withholding_label" aria-label="Nom de la retenue" maxLength={80} value={whLabel} onChange={(e) => setWhLabel(e.target.value)} />
+        <div className="sum-wrapper">
+          <div className="sum">
+            {/* Réglages : TVA, puis juste après la retenue (interrupteur) */}
+            <div className="sum-settings">
+              <input type="hidden" name="vat_rate" value={vatRate} />
               <div>
-                <label htmlFor="wh">Taux (%)</label>
-                <input id="wh" inputMode="decimal" value={wh} onChange={(e) => setWh(e.target.value)} className="pct" />
+                <span id="vat-label">TVA</span>
+                <button type="button" role="switch" aria-checked={vatOn} aria-labelledby="vat-label" className="switch" onClick={() => setVatOn((v) => !v)}>
+                  <span className="switch-knob" />
+                </button>
               </div>
-              <div className="muted"><span>Base{hasPrime ? ' (hors primes)' : ''}</span><span>{money(t.base, currency)}</span></div>
-              <div><span>{whLabel || 'Retenue'} ({hoursLabel(whRate)} %)</span><span>− {money(t.withholding, currency)}</span></div>
+              {vatOn && (
+                <div className="wh-box">
+                  <div>
+                    <label htmlFor="vat">Taux (%)</label>
+                    <input id="vat" inputMode="decimal" value={vat} onChange={(e) => setVat(e.target.value)} className="pct" />
+                  </div>
+                </div>
+              )}
+              <div>
+                <span id="wh-label">Retenue du client</span>
+                <button type="button" role="switch" aria-checked={whOn} aria-labelledby="wh-label" className="switch" onClick={() => setWhOn((v) => !v)}>
+                  <span className="switch-knob" />
+                </button>
+              </div>
+              {whOn && (
+                <div className="wh-box">
+                  <input name="withholding_label" aria-label="Nom de la retenue" maxLength={80} value={whLabel} onChange={(e) => setWhLabel(e.target.value)} />
+                  <div>
+                    <label htmlFor="wh">Taux (%)</label>
+                    <input id="wh" inputMode="decimal" value={wh} onChange={(e) => setWh(e.target.value)} className="pct" />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          {t.withholding > 0 && <div className="total"><span>Net à payer</span><span>{money(t.due, currency)}</span></div>}
-          {alt && rate > 0 && <div className="muted"><span>soit</span><span>{money(convert(t.due, rate, alt), alt)}</span></div>}
+
+            {t.vat > 0 && <div><span>Total HT</span><span>{money(t.subtotal, currency)}</span></div>}
+            {t.vat > 0 && <div><span>TVA</span><span>{money(t.vat, currency)}</span></div>}
+            <div className="total"><span>Total{t.vat > 0 ? ' TTC' : ''}</span><span>{money(t.total, currency)}</span></div>
+            {whOn && (
+              <>
+                <div className="muted"><span>Base{hasPrime ? ' (hors primes)' : ''}</span><span>{money(t.base, currency)}</span></div>
+                <div><span>{whLabel || 'Retenue'} ({hoursLabel(whRate)} %)</span><span>− {money(t.withholding, currency)}</span></div>
+              </>
+            )}
+            {t.withholding > 0 && <div className="total net"><span>Net à payer</span><span>{money(t.due, currency)}</span></div>}
+            {alt && rate > 0 && <div className="muted"><span>soit</span><span>{money(convert(t.due, rate, alt), alt)}</span></div>}
+          </div>
         </div>
       </section>
 
       <section className="stack">
-        <label>Note pour le client <span className="help">facultatif, imprimée sur la facture</span>
-          <textarea name="notes" rows={2} maxLength={1000} defaultValue={invoice?.notes} />
+        <label><span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '16px', marginBottom: '8px' }}><Icon name="documents" size={20} /> Note pour le client</span> <span className="help">facultatif, imprimée sur la facture</span>
+          <textarea name="notes" rows={2} maxLength={1000} defaultValue={invoice?.notes} style={{ marginTop: '4px' }} />
         </label>
 
         {!quote && scheduling && (
@@ -215,14 +277,14 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
             <label>Date d'envoi automatique <span className="help">par exemple la fin de la mission</span>
               <input type="date" name="send_on" min={tomorrow} defaultValue={invoice?.send_on || ''} />
             </label>
-            <button name="intent" value="programmer">Programmer l'envoi</button>
+            <SubmitButton name="intent" value="programmer" pendingText="Prog...">Programmer l'envoi</SubmitButton>
             <button type="button" className="link" onClick={() => setScheduling(false)}>Annuler</button>
           </div>
         )}
         <div className="form-actions">
-          <button name="intent" value="brouillon" className="secondary" formNoValidate>Enregistrer en brouillon</button>
+          <SubmitButton name="intent" value="brouillon" className="secondary" formNoValidate pendingText="Brouillon...">Enregistrer en brouillon</SubmitButton>
           {!quote && !scheduling && <button type="button" className="secondary" onClick={() => setScheduling(true)}>Programmer l'envoi…</button>}
-          <button name="intent" value="envoyer">{quote ? 'Envoyer le devis au client' : 'Envoyer au client'}</button>
+          <SubmitButton name="intent" value="envoyer" pendingText="Envoi...">{quote ? 'Envoyer le devis au client' : 'Envoyer au client'}</SubmitButton>
         </div>
         <p className="help" style={{ margin: 0 }}>{quote
           ? "Envoyer : ton client reçoit le PDF et un lien pour accepter ou refuser le devis."

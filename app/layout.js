@@ -13,11 +13,12 @@ export const metadata = {
   appleWebApp: { capable: true, title: 'FactPay', statusBarStyle: 'black-translucent' },
 };
 
-// Apparence choisie dans Paramètres (cookie « theme ») : clair ou sombre forcé, sinon celle de l'appareil
+// Apparence choisie dans Paramètres (cookie « theme ») : clair par défaut (bleu et blanc),
+// sombre si choisi, ou « auto » pour suivre le réglage de l'appareil
 export default async function RootLayout({ children }) {
   const theme = (await cookies()).get('theme')?.value;
   return (
-    <html lang="fr" className={sans.variable} data-theme={['light', 'dark'].includes(theme) ? theme : undefined}>
+    <html lang="fr" className={sans.variable} data-theme={theme === 'auto' ? undefined : theme === 'dark' ? 'dark' : 'light'}>
       <body>{children}</body>
     </html>
   );
