@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BackButton from '@/components/BackButton';
 import { notFound } from 'next/navigation';
 import Flash from '@/components/Flash';
 import {
@@ -50,7 +51,7 @@ export default async function Page({ params, searchParams }) {
     <>
       <div className="page-head">
         <div>
-          <Link href={quote ? '/devis' : '/factures'}>← {quote ? 'Devis' : 'Factures'}</Link>
+          <BackButton href={quote ? '/devis' : '/factures'}>{quote ? 'Devis' : 'Factures'}</BackButton>
           <h1>{inv.number ? `${word} ${inv.number}` : `Brouillon de ${word.toLowerCase()}`}</h1>
           <span className={`status ${st.cls}`}>{st.label}</span>
         </div>

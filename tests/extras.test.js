@@ -85,3 +85,21 @@ test('lien WhatsApp : indicatif ajouté aux numéros locaux', () => {
   assert.equal(whatsappLink('', 'Merci', 'TG'), 'https://wa.me/?text=Merci');
   assert.ok(addDays('2026-01-31', 1) === '2026-02-01');
 });
+
+test('vérification : code posé à l\'émission, document retrouvé, empreinte stable, faux code refusé', async () => {
+  const { fingerprint, normalizeCode, formatCode } = await import('../lib/verify.js');
+  const id = await inv.saveDraft(c, { ...base, client_id: clientId, lines });
+  await inv.sendInvoice(c, id);
+  const f = await inv.getInvoice(c.id, id);
+  assert.match(f.verify_code, /^[A-Z2-9]{12}$/);
+  const found = await inv.getByVerifyCode(formatCode(f.verify_code).toLowerCase());
+  assert.equal(found.invoice.id, id, 'retrouvé même tapé en minuscules avec tirets');
+  const fp = fingerprint(found.invoice, 'Studio');
+  await inv.confirmPayment(c, id, { notify: false });
+  assert.equal(fingerprint(await inv.getInvoice(c.id, id), 'Studio'), fp, 'le statut ne change pas l\'empreinte');
+  assert.notEqual(fingerprint({ ...found.invoice, amount_due: 1 }, 'Studio'), fp, 'un montant modifié change l\'empreinte');
+  assert.equal(await inv.getByVerifyCode('AAAA-BBBB-CCCC'), null);
+  assert.equal(normalizeCode(' ab-cd '), 'ABCD');
+  const { invoicePdf } = await import('../lib/pdf.js');
+  assert.equal((await invoicePdf(f, c)).subarray(0, 4).toString(), '%PDF');
+});

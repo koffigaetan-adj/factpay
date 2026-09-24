@@ -86,7 +86,7 @@ export default function AppShell({ companyName, userName, email, avatarUrl = nul
 
         <div className="sb-top">
           <Link href="/tableau-de-bord" className="sb-brand" title={companyName}>
-            <Logo onDark height={30} />
+            <Logo height={30} />
             <span className="sb-brand-divider sb-label" aria-hidden="true"></span>
             <span className="sb-label sb-company">{companyName}</span>
           </Link>

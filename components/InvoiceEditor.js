@@ -27,7 +27,8 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
   const [currency, setCurrency] = useState(invoice?.currency || defaultCurrency);
   const [alt, setAlt] = useState(invoice?.id ? invoice.alt_currency || '' : defaultAlt || '');
   const [manualRate, setManualRate] = useState(invoice?.alt_rate && !fixedRate(invoice.currency, invoice.alt_currency) ? String(invoice.alt_rate) : '');
-  const [intent, setIntent] = useState(invoice?.send_on ? 'programmer' : 'envoyer');
+  // « Programmer l'envoi » fait apparaître la date ; les autres boutons envoient le formulaire directement
+  const [scheduling, setScheduling] = useState(!!invoice?.send_on);
 
   const update = (k, field, value) => setLines((ls) => ls.map((l) => (l.key === k ? { ...l, [field]: value } : l)));
   const remove = (k) => setLines((ls) => ls.filter((l) => l.key !== k));
@@ -67,7 +68,6 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
     setManualRate('');
   };
 
-  const submitLabel = { envoyer: 'Enregistrer et envoyer au client', programmer: "Programmer l'envoi", brouillon: 'Enregistrer le brouillon' }[quote && intent === 'programmer' ? 'envoyer' : intent];
 
   return (
     <form action={saveInvoice} className="stack">
@@ -210,25 +210,23 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
           <textarea name="notes" rows={2} maxLength={1000} defaultValue={invoice?.notes} />
         </label>
 
-        <fieldset>
-          <legend>Que faire de {quote ? 'ce devis' : 'cette facture'} ?</legend>
-          <div className="choices">
-            <label className="check"><input type="radio" name="intent" value="envoyer" checked={intent === 'envoyer' || (quote && intent === 'programmer')} onChange={() => setIntent('envoyer')} />
-              <span>{quote ? "L'envoyer maintenant au client, avec le PDF et le lien pour l'accepter" : "L'envoyer maintenant au client, avec le PDF et le lien de paiement"}</span></label>
-            {!quote && (
-              <label className="check"><input type="radio" name="intent" value="programmer" checked={intent === 'programmer'} onChange={() => setIntent('programmer')} />
-                <span>L'envoyer automatiquement à une date (par exemple la fin de la mission)</span></label>
-            )}
-            {!quote && intent === 'programmer' && (
-              <label style={{ maxWidth: 240, marginLeft: 28 }}>Date d'envoi
-                <input type="date" name="send_on" required min={tomorrow} defaultValue={invoice?.send_on || ''} />
-              </label>
-            )}
-            <label className="check"><input type="radio" name="intent" value="brouillon" checked={intent === 'brouillon'} onChange={() => setIntent('brouillon')} />
-              <span>La garder en brouillon</span></label>
+        {!quote && scheduling && (
+          <div className="schedule-box">
+            <label>Date d'envoi automatique <span className="help">par exemple la fin de la mission</span>
+              <input type="date" name="send_on" min={tomorrow} defaultValue={invoice?.send_on || ''} />
+            </label>
+            <button name="intent" value="programmer">Programmer l'envoi</button>
+            <button type="button" className="link" onClick={() => setScheduling(false)}>Annuler</button>
           </div>
-        </fieldset>
-        <div><button>{submitLabel}</button></div>
+        )}
+        <div className="form-actions">
+          <button name="intent" value="brouillon" className="secondary" formNoValidate>Enregistrer en brouillon</button>
+          {!quote && !scheduling && <button type="button" className="secondary" onClick={() => setScheduling(true)}>Programmer l'envoi…</button>}
+          <button name="intent" value="envoyer">{quote ? 'Envoyer le devis au client' : 'Envoyer au client'}</button>
+        </div>
+        <p className="help" style={{ margin: 0 }}>{quote
+          ? "Envoyer : ton client reçoit le PDF et un lien pour accepter ou refuser le devis."
+          : "Envoyer : ton client reçoit le PDF et un lien pour payer ou signaler son paiement."}</p>
       </section>
     </form>
   );

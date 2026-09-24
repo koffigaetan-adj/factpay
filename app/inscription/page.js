@@ -5,6 +5,7 @@ import Flash from '@/components/Flash';
 import PasswordFields from '@/components/PasswordFields';
 import { signup } from '@/app/actions';
 import { currentUser } from '@/lib/auth';
+import SubmitButton from '@/components/SubmitButton';
 
 export const metadata = { title: 'Créer un compte' };
 
@@ -28,7 +29,7 @@ export default async function Page({ searchParams }) {
             <input type="checkbox" name="terms" required />
             <span>J'accepte les <Link href="/conditions" target="_blank">conditions d'utilisation</Link> et la <Link href="/confidentialite" target="_blank">politique de confidentialité</Link>.</span>
           </label>
-          <button>Créer mon compte</button>
+          <SubmitButton pendingText="Création...">Créer mon compte</SubmitButton>
         </form>
       </div>
       <p className="below">Déjà un compte ? <Link href="/connexion">Se connecter</Link></p>

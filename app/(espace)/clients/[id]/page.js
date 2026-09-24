@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BackButton from '@/components/BackButton';
 import { notFound } from 'next/navigation';
 import Flash from '@/components/Flash';
 import InvoiceTable from '@/components/InvoiceTable';
@@ -9,6 +10,7 @@ import { one } from '@/lib/db';
 import { listInvoices } from '@/lib/invoices';
 import { listDocuments } from '@/lib/documents';
 import { DocumentForm, DocumentList } from '@/components/Documents';
+import Modal from '@/components/Modal';
 
 export const metadata = { title: 'Client' };
 
@@ -23,7 +25,7 @@ export default async function Page({ params, searchParams }) {
   return (
     <>
       <div className="page-head">
-        <div><Link href="/clients">← Clients</Link><h1>{client.name}</h1></div>
+        <div><BackButton href="/clients">Clients</BackButton><h1>{client.name}</h1></div>
         <div className="actions"><Link className="button" href={`/factures/nouvelle?client=${client.id}`}>Nouvelle facture</Link></div>
       </div>
       <Flash searchParams={searchParams} />
@@ -50,15 +52,14 @@ export default async function Page({ params, searchParams }) {
       </div>
 
       <section id="documents">
-        <h2>Documents de ce client</h2>
-        <p className="hint">Contrat, bon de commande, devis signé… rangés avec sa fiche.</p>
-        <div className="grid2 docs-layout">
-          <DocumentList docs={docs} showClient={false} clientId={client.id} />
-          <details className="add-doc">
-            <summary>Ajouter un document</summary>
+        <div className="chart-head">
+          <h2>Documents de ce client</h2>
+          <Modal label="Ajouter un document" title={`Ajouter un document pour ${client.name}`} buttonClass="secondary">
             <DocumentForm clientId={client.id} />
-          </details>
+          </Modal>
         </div>
+        <p className="hint">Contrat, bon de commande, devis signé… rangés avec sa fiche.</p>
+        <DocumentList docs={docs} showClient={false} clientId={client.id} />
       </section>
     </>
   );

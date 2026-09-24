@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Dossier de construction : .next par défaut ; NEXT_DIST_DIR permet de vérifier une construction
+  // à part (par exemple .next-check) sans perturber « npm run dev » qui tourne en même temps.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // pdfkit lit ses polices depuis le disque, PGlite charge un fichier WebAssembly :
   // on les laisse hors du bundle.
   serverExternalPackages: ['pdfkit', '@electric-sql/pglite'],

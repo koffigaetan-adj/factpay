@@ -5,6 +5,7 @@ import { requireCompany } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { money } from '@/lib/money';
 import ClientFields from '@/components/ClientFields';
+import Modal from '@/components/Modal';
 
 export const metadata = { title: 'Clients' };
 
@@ -17,10 +18,19 @@ export default async function Page({ searchParams }) {
 
   return (
     <>
-      <div className="page-head"><h1>Clients</h1></div>
+      <div className="page-head">
+        <h1>Clients</h1>
+        <div className="actions">
+          <Modal label="Nouveau client" title="Nouveau client">
+            <form action={createClient} className="stack">
+              <ClientFields />
+              <div className="form-actions"><button>Ajouter le client</button></div>
+            </form>
+          </Modal>
+        </div>
+      </div>
       <Flash searchParams={searchParams} />
-      <div className="grid2">
-        <section>
+      <section>
           {clients.length ? (
             <div className="scroll">
               <table>
@@ -37,16 +47,8 @@ export default async function Page({ searchParams }) {
                 </tbody>
               </table>
             </div>
-          ) : <p className="empty">Aucun client pour l'instant. Ajoute le premier avec le formulaire.</p>}
-        </section>
-        <section>
-          <h2>Nouveau client</h2>
-          <form action={createClient} className="stack">
-            <ClientFields />
-            <div><button>Ajouter le client</button></div>
-          </form>
-        </section>
-      </div>
+          ) : <p className="empty">Aucun client pour l'instant. Clique sur « Nouveau client » pour ajouter le premier.</p>}
+      </section>
     </>
   );
 }

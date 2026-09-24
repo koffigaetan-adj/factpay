@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BackButton from '@/components/BackButton';
 import Flash from '@/components/Flash';
 import InvoiceEditor from '@/components/InvoiceEditor';
 import ClientFields from '@/components/ClientFields';
@@ -18,7 +19,7 @@ export default async function Page({ searchParams }) {
   return (
     <>
       <div className="page-head">
-        <div><Link href="/devis">← Devis</Link><h1>Nouveau devis</h1></div>
+        <div><BackButton href="/devis">Devis</BackButton><h1>Nouveau devis</h1></div>
       </div>
       <Flash searchParams={searchParams} />
       {clients.length ? (

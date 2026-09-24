@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BackButton from '@/components/BackButton';
 import { notFound, redirect } from 'next/navigation';
 import Flash from '@/components/Flash';
 import InvoiceEditor from '@/components/InvoiceEditor';
@@ -20,7 +21,7 @@ export default async function Page({ params, searchParams }) {
   return (
     <>
       <div className="page-head">
-        <div><Link href={`/factures/${invoice.id}`}>← Retour</Link><h1>{invoice.doc_type === 'devis' ? 'Modifier le devis' : 'Modifier la facture'}</h1></div>
+        <div><BackButton href={`/factures/${invoice.id}`}>Retour</BackButton><h1>{invoice.doc_type === 'devis' ? 'Modifier le devis' : 'Modifier la facture'}</h1></div>
       </div>
       <Flash searchParams={searchParams} />
       <InvoiceEditor

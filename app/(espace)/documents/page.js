@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Flash from '@/components/Flash';
 import { DocumentForm, DocumentList } from '@/components/Documents';
+import Modal from '@/components/Modal';
 import { requireCompany } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { listDocuments, CATEGORIES } from '@/lib/documents';
@@ -25,10 +26,14 @@ export default async function Page({ searchParams }) {
           <h1>Documents</h1>
           <p className="hint" style={{ margin: '6px 0 0' }}>Contrats, bons de commande, attestations, papiers de l'entreprise : tout au même endroit, visible par toi seul.</p>
         </div>
+        <div className="actions">
+          <Modal label="Ajouter un document" title="Ajouter un document">
+            <DocumentForm clients={clients} defaultClient={sp.client || ''} />
+          </Modal>
+        </div>
       </div>
       <Flash searchParams={searchParams} />
-      <div className="grid2 docs-layout">
-        <section>
+      <section>
           {used.length > 1 && (
             <nav className="tabs" aria-label="Filtrer par type">
               <Link href="/documents" aria-current={!category ? 'page' : undefined}>Tous<span className="count">{all.length}</span></Link>
@@ -39,13 +44,8 @@ export default async function Page({ searchParams }) {
               ))}
             </nav>
           )}
-          <DocumentList docs={docs} />
-        </section>
-        <section>
-          <h2>Ajouter un document</h2>
-          <DocumentForm clients={clients} defaultClient={sp.client || ''} />
-        </section>
-      </div>
+        <DocumentList docs={docs} />
+      </section>
     </>
   );
 }
