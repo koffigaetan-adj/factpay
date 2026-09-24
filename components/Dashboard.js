@@ -16,7 +16,7 @@ function niceMax(v) {
 const compact = (n) => new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 // Le tableau de bord à partir des données déjà lues (séparé pour pouvoir l'afficher avec des données d'exemple)
-export default function Dashboard({ user, company, invoices, quotes = [], clientCount, flash }) {
+export default function Dashboard({ user, company, invoices, quotes = [], expiring = [], clientCount, flash }) {
   const cur = company.currency;
   const year = new Date().getUTCFullYear();
   const now = today();
@@ -62,6 +62,7 @@ export default function Dashboard({ user, company, invoices, quotes = [], client
     late.length && { cls: 'late', href: '/factures?filtre=retard', label: `${late.length} facture${late.length > 1 ? 's' : ''} en retard`, detail: `${money(sum(late, 'amount_due'), cur)} attendus. Relance ou renvoie la facture.` },
     failed.length && { cls: 'late', href: `/factures/${failed[0].id}`, label: `${failed.length} envoi${failed.length > 1 ? 's' : ''} en échec`, detail: 'Nouvel essai automatique chaque matin, ou renvoie à la main.' },
     acceptedQuotes.length && { cls: 'paid', href: `/factures/${acceptedQuotes[0].id}`, label: `${acceptedQuotes.length} devis accepté${acceptedQuotes.length > 1 ? 's' : ''} à facturer`, detail: 'Transforme-le en facture en un clic.' },
+    expiring.length && { cls: 'wait', href: '/documents?type=contrat', label: `${expiring.length} document${expiring.length > 1 ? 's' : ''} à échéance`, detail: 'Contrat ou attestation échu ou qui arrive à son terme dans les 30 jours.' },
     scheduled.length && { cls: 'draft', href: `/factures/${scheduled[0].id}`, label: `${scheduled.length} envoi${scheduled.length > 1 ? 's' : ''} programmé${scheduled.length > 1 ? 's' : ''}`, detail: `Prochain le ${frDate(scheduled[0].send_on)}.` },
   ].filter(Boolean);
 

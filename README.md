@@ -19,6 +19,7 @@ Logiciel de facturation en ligne, multi-comptes. Chaque personne crée son compt
 - **Devis** : numérotés à part (`DEV-2612-0001`), acceptés ou refusés en ligne par le client, transformés en facture en un clic.
 - **Dupliquer** : copie d'une facture en brouillon, avec la période décalée au mois suivant.
 - **Export** : fichier CSV (Excel) des factures de l'année pour le comptable.
+- **Double authentification** : code par e-mail ou application (Google Authenticator, Authy…), avec 8 codes de secours.
 - **Mode sombre** : suit le réglage de l'appareil.
 - **Fiches de paie** : prochaine étape.
 
@@ -73,6 +74,7 @@ Gmail limite à environ 500 e-mails par jour. Pour passer plus tard à un autre 
 
 ### 6. Les autres variables
 - `CRON_SECRET` : une longue chaîne aléatoire. Vercel l'envoie automatiquement à la tâche quotidienne.
+- `AUTH_SECRET` : une autre longue chaîne aléatoire, qui chiffre les secrets de la double authentification. À ne plus changer une fois en ligne.
 - `APP_URL` : l'adresse publique, par exemple `https://factures.ton-domaine.com`. Facultatif si tu gardes l'adresse `…vercel.app`.
 
 ### 7. Déployer

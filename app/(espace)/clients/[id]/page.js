@@ -7,6 +7,8 @@ import { updateClient, deleteClient } from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
 import { one } from '@/lib/db';
 import { listInvoices } from '@/lib/invoices';
+import { listDocuments } from '@/lib/documents';
+import { DocumentForm, DocumentList } from '@/components/Documents';
 
 export const metadata = { title: 'Client' };
 
@@ -16,6 +18,7 @@ export default async function Page({ params, searchParams }) {
   const client = await one('SELECT * FROM clients WHERE id = $1 AND company_id = $2', [Number(id) || 0, company.id]);
   if (!client) notFound();
   const invoices = (await listInvoices(company.id)).filter((i) => i.client_id === client.id);
+  const docs = await listDocuments(company.id, { clientId: client.id });
 
   return (
     <>
@@ -31,7 +34,7 @@ export default async function Page({ params, searchParams }) {
         </section>
         <section id="modifier">
           <h2>Modifier le client</h2>
-          <p className="hint">Les nouvelles coordonnées s'affichent aussi sur les factures déjà émises de ce client (page et PDF).</p>
+          <p className="hint">Les factures déjà émises gardent les coordonnées du jour de leur émission ; les prochaines utiliseront celles-ci.</p>
           <form action={updateClient} className="stack">
             <input type="hidden" name="id" value={client.id} />
             <ClientFields c={client} />
@@ -45,6 +48,18 @@ export default async function Page({ params, searchParams }) {
           )}
         </section>
       </div>
+
+      <section id="documents">
+        <h2>Documents de ce client</h2>
+        <p className="hint">Contrat, bon de commande, devis signé… rangés avec sa fiche.</p>
+        <div className="grid2 docs-layout">
+          <DocumentList docs={docs} showClient={false} clientId={client.id} />
+          <details className="add-doc">
+            <summary>Ajouter un document</summary>
+            <DocumentForm clientId={client.id} />
+          </details>
+        </div>
+      </section>
     </>
   );
 }

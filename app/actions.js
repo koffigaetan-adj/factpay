@@ -7,12 +7,15 @@ import { q, one } from '@/lib/db';
 import * as auth from '@/lib/auth';
 import * as invoices from '@/lib/invoices';
 import { sendMail, mailTestMode } from '@/lib/mail';
-import { verifyEmail, resetPasswordEmail, changeEmailEmail, withImages } from '@/lib/emails';
+import { verifyEmail, resetPasswordEmail, changeEmailEmail, loginCodeEmail, securityNoticeEmail, withImages } from '@/lib/emails';
+import * as twofa from '@/lib/twofa';
+import { newSecret, verifyCode } from '@/lib/totp';
 import { saveFile } from '@/lib/storage';
 import { appUrl } from '@/lib/url';
 import { CURRENCIES, fixedRate } from '@/lib/money';
 import { passwordProblem } from '@/lib/password';
 import { cleanPeriod, periodHours } from '@/lib/period';
+import * as documents from '@/lib/documents';
 import { COUNTRIES, cleanMobiles } from '@/lib/payment';
 
 // Revient sur une page avec un message (?ok=… ou ?erreur=…)
@@ -79,14 +82,135 @@ export async function login(fd) {
   const email = text(fd, 'email', 200).toLowerCase();
   const password = String(fd.get('password') || '');
   if (await auth.tooManyFailures(email)) back('/connexion', 'Trop d\'essais. Réessaie dans 15 minutes.', true);
-  const user = await one('SELECT id, password_hash FROM users WHERE email = $1', [email]);
+  const user = await one('SELECT id, email, name, first_name, password_hash, twofa_method FROM users WHERE email = $1', [email]);
   if (!user || !(await auth.checkPassword(password, user.password_hash))) {
     await auth.recordFailure(email);
     back('/connexion', 'Adresse e-mail ou mot de passe incorrect.', true);
   }
   await auth.clearFailures(email);
-  await auth.startSession(user.id);
+  await openSessionOrAsk2fa(user);
+}
+
+// ---------- Double authentification ----------
+
+const PENDING = 'login_2fa';
+
+// Sans double authentification : session ouverte. Avec : on demande le second code.
+async function openSessionOrAsk2fa(user, then = '/tableau-de-bord') {
+  if (!user.twofa_method) {
+    await auth.startSession(user.id);
+    redirect(then);
+  }
+  const { token, emailCode } = await twofa.createChallenge(user);
+  (await cookies()).set(PENDING, token, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 600 });
+  if (emailCode) {
+    try {
+      await sendMail({ to: user.email, ...(await withImages(loginCodeEmail(user.first_name || user.name, emailCode))) });
+    } catch (err) {
+      back('/connexion/verification', `Le code n'a pas pu partir : ${err.message}. Clique sur « Renvoyer le code ».`, true);
+    }
+  }
+  redirect('/connexion/verification');
+}
+
+export async function verifyLogin(fd) {
+  const jar = await cookies();
+  const token = jar.get(PENDING)?.value;
+  const r = await twofa.verifyChallenge(token, text(fd, 'code', 20));
+  if (r.expired) {
+    jar.delete(PENDING);
+    back('/connexion', 'La vérification a expiré ou a échoué trop de fois. Reconnecte-toi.', true);
+  }
+  if (!r.ok) back('/connexion/verification', `Code incorrect. Encore ${r.left} essai${r.left > 1 ? 's' : ''}.`, true);
+  jar.delete(PENDING);
+  await auth.startSession(r.userId);
+  if (r.usedBackup) back('/parametres?onglet=securite', 'Connecté avec un code de secours : il ne servira plus. Pense à en générer de nouveaux s\'il t\'en reste peu.');
   redirect('/tableau-de-bord');
+}
+
+export async function resendLoginCode() {
+  const token = (await cookies()).get(PENDING)?.value;
+  const ch = token && await twofa.findChallenge(token);
+  if (!ch) back('/connexion', 'La vérification a expiré. Reconnecte-toi.', true);
+  const code = await twofa.renewEmailCode(token);
+  if (!code) back('/connexion/verification', 'Un code vient de partir. Attends 30 secondes avant d\'en demander un autre.', true);
+  try {
+    await sendMail({ to: ch.email, ...(await withImages(loginCodeEmail(ch.first_name || ch.name, code))) });
+  } catch (err) {
+    back('/connexion/verification', `Le code n'a pas pu partir : ${err.message}`, true);
+  }
+  back('/connexion/verification', `Nouveau code envoyé à ${ch.email}.${mailTestMode() ? ' (mode test : code affiché dans la console)' : ''}`);
+}
+
+// Vérifie le mot de passe du compte connecté avant un changement de sécurité
+async function requirePassword(fd, user, tab = '/parametres?onglet=securite') {
+  const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+  if (!(await auth.checkPassword(String(fd.get('password') || ''), row.password_hash))) back(tab, 'Mot de passe incorrect.', true);
+}
+
+// Codes de secours affichés une seule fois, juste après leur création
+async function showBackupCodesOnce(codes) {
+  (await cookies()).set('backup_codes_once', codes.join(' '), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/parametres', maxAge: 600 });
+}
+
+async function notifySecurity(user, what) {
+  await sendMail({ to: user.email, ...(await withImages(securityNoticeEmail(user.first_name || user.name, what))) })
+    .catch((e) => console.error('Alerte de sécurité non envoyée :', e.message));
+}
+
+export async function enableEmail2fa(fd) {
+  const user = await auth.requireUser();
+  await requirePassword(fd, user);
+  const { codes, hashes } = twofa.newBackupCodes();
+  await q(`UPDATE users SET twofa_method = 'email', totp_secret = NULL, totp_pending = NULL, backup_codes = $1 WHERE id = $2`, [JSON.stringify(hashes), user.id]);
+  await showBackupCodesOnce(codes);
+  await notifySecurity(user, 'Double authentification activée (code par e-mail)');
+  back('/parametres?onglet=securite', 'Double authentification activée : un code te sera envoyé par e-mail à chaque connexion.');
+}
+
+// Étape 1 de l'application : un nouveau secret, montré en QR code, en attente de confirmation
+export async function startTotpSetup(fd) {
+  const user = await auth.requireUser();
+  await requirePassword(fd, user);
+  await q('UPDATE users SET totp_pending = $1 WHERE id = $2', [twofa.encrypt(newSecret()), user.id]);
+  redirect('/parametres?onglet=securite&etape=application');
+}
+
+// Étape 2 : le premier code de l'application prouve que le QR code a bien été scanné
+export async function confirmTotpSetup(fd) {
+  const user = await auth.requireUser();
+  const row = await one('SELECT totp_pending FROM users WHERE id = $1', [user.id]);
+  if (!row.totp_pending) back('/parametres?onglet=securite', 'Recommence la configuration de l\'application.', true);
+  const step = verifyCode(twofa.decrypt(row.totp_pending), text(fd, 'code', 10));
+  if (step === null) back('/parametres?onglet=securite&etape=application', 'Code incorrect. Vérifie l\'heure de ton téléphone et réessaie avec le code affiché.', true);
+  const { codes, hashes } = twofa.newBackupCodes();
+  await q(`UPDATE users SET twofa_method = 'totp', totp_secret = totp_pending, totp_pending = NULL, totp_last_step = $1, backup_codes = $2 WHERE id = $3`,
+    [step, JSON.stringify(hashes), user.id]);
+  await showBackupCodesOnce(codes);
+  await notifySecurity(user, 'Double authentification activée (application)');
+  back('/parametres?onglet=securite', 'Double authentification activée : ton application te donnera un code à chaque connexion.');
+}
+
+export async function newBackupCodes(fd) {
+  const user = await auth.requireUser();
+  await requirePassword(fd, user);
+  const { codes, hashes } = twofa.newBackupCodes();
+  await q('UPDATE users SET backup_codes = $1 WHERE id = $2', [JSON.stringify(hashes), user.id]);
+  await showBackupCodesOnce(codes);
+  back('/parametres?onglet=securite', 'Nouveaux codes de secours créés. Les anciens ne marchent plus.');
+}
+
+export async function hideBackupCodes() {
+  (await cookies()).delete({ name: 'backup_codes_once', path: '/parametres' });
+  redirect('/parametres?onglet=securite');
+}
+
+export async function disable2fa(fd) {
+  const user = await auth.requireUser();
+  await requirePassword(fd, user);
+  await q(`UPDATE users SET twofa_method = '', totp_secret = NULL, totp_pending = NULL, backup_codes = '[]' WHERE id = $1`, [user.id]);
+  await notifySecurity(user, 'Double authentification désactivée');
+  back('/parametres?onglet=securite', 'Double authentification désactivée.');
 }
 
 export async function logout() {
@@ -117,6 +241,9 @@ export async function resetPassword(fd) {
     [await auth.hashPassword(password), reset.user_id]);
   await auth.markResetUsed(token);
   await auth.endAllSessions(reset.user_id);
+  // Un mot de passe oublié ne dispense pas du second code
+  const user = await one('SELECT id, email, name, first_name, twofa_method FROM users WHERE id = $1', [reset.user_id]);
+  if (user.twofa_method) await openSessionOrAsk2fa(user);
   await auth.startSession(reset.user_id);
   back('/tableau-de-bord', 'Mot de passe changé.');
 }
@@ -505,4 +632,32 @@ export async function answerQuote(fd) {
   const accepted = fd.get('answer') === 'accepter';
   await invoices.answerQuote(token, accepted);
   redirect(`/f/${token}`);
+}
+
+// ---------- Documents ----------
+
+const isoDate = (fd, key) => { const v = text(fd, key, 10); return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''; };
+
+export async function uploadDocument(fd) {
+  const { company } = await auth.requireCompany();
+  const from = fd.get('from') === 'client' ? `/clients/${Number(fd.get('client_id'))}#documents` : '/documents';
+  const r = await documents.addDocument(company.id, {
+    file: fd.get('file'),
+    title: text(fd, 'title', 160),
+    category: text(fd, 'category', 30),
+    clientId: Number(fd.get('client_id')) || null,
+    docDate: isoDate(fd, 'doc_date'),
+    expiresOn: isoDate(fd, 'expires_on'),
+    notes: text(fd, 'notes', 500),
+  });
+  if (r.error) back(from, r.error, true);
+  revalidatePath('/', 'layout');
+  back(from, 'Document ajouté.');
+}
+
+export async function deleteDocument(fd) {
+  const { company } = await auth.requireCompany();
+  await documents.removeDocument(company.id, Number(fd.get('id')));
+  revalidatePath('/', 'layout');
+  back(fd.get('from') === 'client' ? `/clients/${Number(fd.get('client_id'))}#documents` : '/documents', 'Document supprimé.');
 }

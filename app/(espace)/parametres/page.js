@@ -3,6 +3,7 @@ import Flash from '@/components/Flash';
 import PasswordFields from '@/components/PasswordFields';
 import CompanyFields from '@/components/CompanyFields';
 import ThemePicker from '@/components/ThemePicker';
+import SecuritySettings from '@/components/SecuritySettings';
 import { cookies } from 'next/headers';
 import { saveCompany, changePassword, updateProfile, requestEmailChange, deleteAccount } from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
@@ -15,6 +16,7 @@ const TABS = {
   entreprise: { label: 'Entreprise', hint: 'Ce qui apparaît en haut de tes factures : nom, identifiants légaux, coordonnées et logo.' },
   paiement: { label: 'Paiement', hint: 'Les moyens de paiement indiqués à tes clients sur la facture, la page de paiement et l\'e-mail.' },
   factures: { label: 'Factures', hint: 'Les réglages par défaut des nouvelles factures. Les factures déjà émises ne changent pas.' },
+  securite: { label: 'Sécurité', hint: "La double authentification protège ton compte même si quelqu'un connaît ton mot de passe." },
   apparence: { label: 'Apparence', hint: 'Mode clair ou sombre. Ce choix vaut pour ce navigateur.' },
   compte: { label: 'Mon compte', hint: 'Ton nom, ton adresse de connexion et ton mot de passe.' },
 };
@@ -36,7 +38,9 @@ export default async function Page({ searchParams }) {
       <Flash searchParams={searchParams} />
       <p className="hint">{TABS[tab].hint}</p>
 
-      {tab === 'apparence' ? (
+      {tab === 'securite' ? (
+        <SecuritySettings userId={user.id} step={sp.etape} />
+      ) : tab === 'apparence' ? (
         <section className="settings-form">
           <h2>Mode d'affichage</h2>
           <ThemePicker current={['light', 'dark'].includes((await cookies()).get('theme')?.value) ? (await cookies()).get('theme').value : 'auto'} />

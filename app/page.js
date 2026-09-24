@@ -60,13 +60,15 @@ export default async function Home({ searchParams }) {
   return (
     <div className="landing">
       {deleted && <p className="flash deleted" role="status">Ton compte et toutes ses données ont été supprimés.</p>}
-      <header className="site-head">
-        <Link href="/" aria-label="FactPay, accueil"><Logo height={48} priority /></Link>
-        <nav className="site-nav">
-          <Link href="/connexion">Se connecter</Link>
-          <Link className="button" href="/inscription">Créer mon compte</Link>
-        </nav>
-      </header>
+      <div className="site-top">
+        <header className="site-head">
+          <Link href="/" aria-label="FactPay, accueil"><Logo height={48} priority /></Link>
+          <nav className="site-nav">
+            <Link className="button secondary" href="/connexion">Se connecter</Link>
+            <Link className="button" href="/inscription">Créer mon compte</Link>
+          </nav>
+        </header>
+      </div>
 
       <main className="land">
         <section className="land-hero" aria-labelledby="hero-title">
