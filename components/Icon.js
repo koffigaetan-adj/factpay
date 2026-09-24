@@ -17,6 +17,7 @@ const PATHS = {
   user: <><circle cx="12" cy="8.5" r="4" /><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" /></>,
   whatsapp: <><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z" /><path d="M9 8.5c0 3.3 3.2 6.5 6.5 6.5l1.2-1.5-2-1-1 .9a5 5 0 0 1-3.1-3.1l.9-1-1-2z" /></>,
   report: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M12 14v3l2 1" /></>,
 };
 
 export default function Icon({ name, size = 20 }) {

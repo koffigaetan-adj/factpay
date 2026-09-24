@@ -9,7 +9,7 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { whatsappLink } from '../lib/payment.js';
 import { pubId, idFrom } from '../lib/ids.js';
-import { addDays, today } from '../lib/dates.js';
+import { addDays, today, frDateTime } from '../lib/dates.js';
 
 let q, one, inv, report, acc, c, clientId;
 const base = { title: 'Mission', currency: 'XOF', vat_rate: 18, withholding_rate: 5, withholding_label: 'Retenue à la source', notes: '', send_on: '' };
@@ -130,4 +130,24 @@ test('identifiants publics : aucun numéro visible, aller-retour exact, faux cod
   assert.equal(idFrom('facture', '1'), 0);
   assert.equal(idFrom('facture', code.slice(0, 10) + (code[10] === 'a' ? 'b' : 'a')), 0);
   assert.equal(idFrom('facture', undefined), 0);
+});
+
+test("envoi programmé à une heure précise : part quand l'heure est passée, pas avant", async () => {
+  const soon = new Date(Date.now() + 3600 * 1000).toISOString();
+  const later = await inv.saveDraft(c, { ...base, client_id: clientId, lines, send_on: soon, send_tz: 'Europe/Paris' });
+  const past = new Date(Date.now() - 60 * 1000).toISOString();
+  const due = await inv.saveDraft(c, { ...base, client_id: clientId, lines, send_on: past, send_tz: 'Europe/Paris' });
+  assert.equal((await one('SELECT send_tz FROM invoices WHERE id = $1', [due])).send_tz, 'Europe/Paris');
+  const run = await inv.runScheduled();
+  const sentIds = run.sent.map((r) => r.id);
+  assert.ok(sentIds.includes(due), "l'heure est passée : la facture part");
+  assert.ok(!sentIds.includes(later), 'dans une heure : elle attend');
+  assert.equal((await one('SELECT status FROM invoices WHERE id = $1', [later])).status, 'programmee');
+});
+
+test('heure affichée dans le fuseau choisi', () => {
+  // 06:00 UTC = 08:00 à Paris en été, 06:00 à Lomé
+  assert.match(frDateTime('2026-09-25T06:00:00.000Z', 'Europe/Paris'), /25 septembre 2026 à 08:00, heure de Paris/);
+  assert.match(frDateTime('2026-09-25T06:00:00.000Z', 'Africa/Lome'), /à 06:00, heure de Lome/);
+  assert.equal(frDateTime('2026-09-25', ''), '25 septembre 2026', 'ancienne programmation : la date seule');
 });

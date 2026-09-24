@@ -40,6 +40,8 @@ const number = (fd, key, { min = 0, max = Infinity, fallback = 0 } = {}) => {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 };
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+// Nom de fuseau horaire reconnu (« Europe/Paris »), sinon vide
+const validTimeZone = (tz) => { try { return tz && new Intl.DateTimeFormat('fr', { timeZone: tz }) ? tz : ''; } catch { return ''; } };
 
 // ---------- Comptes ----------
 
@@ -322,6 +324,7 @@ function companyFields(fd, sections) {
   if (sections.includes('paiement')) {
     Object.assign(c, {
       bank_name: text(fd, 'bank_name', 120),
+      account_holder: text(fd, 'account_holder', 120),
       iban: text(fd, 'iban', 60),
       bic: text(fd, 'bic', 20),
       mobile_money: text(fd, 'mobile_money', 200),
@@ -336,11 +339,11 @@ function companyFields(fd, sections) {
       payment_terms: Math.round(number(fd, 'payment_terms', { max: 365, fallback: 14 })),
       default_vat_rate: number(fd, 'default_vat_rate', { max: 100 }),
       tax_reserve_rate: number(fd, 'tax_reserve_rate', { max: 100 }),
-      invoice_prefix: (text(fd, 'invoice_prefix', 10).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'FAC'),
+      invoice_prefix: (text(fd, 'invoice_prefix', 10).toUpperCase().replace(/[^A-Z]/g, '') || 'FAC'),
       footer_note: text(fd, 'footer_note', 500),
       reminders_enabled: fd.get('reminders_enabled') === 'on',
       reminder_days: String(fd.get('reminder_days') || '').split(/[^\d]+/).map(Number).filter((n) => n > 0 && n <= 365).slice(0, 5).join(',') || '3,10',
-      quote_prefix: (text(fd, 'quote_prefix', 10).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'DEV'),
+      quote_prefix: (text(fd, 'quote_prefix', 10).toUpperCase().replace(/[^A-Z]/g, '') || 'DEV'),
       quote_validity: Math.round(number(fd, 'quote_validity', { min: 1, max: 365, fallback: 30 })),
     });
   }
@@ -535,9 +538,17 @@ export async function saveInvoice(fd) {
   lines = lines
     .map((l) => (l.kind !== 'period' ? l : period ? { ...l, quantity: periodHours(period), unit: 'heure(s)' } : { ...l, kind: 'service' }))
     .filter((l) => l.quantity);
-  const sendOn = intent === 'programmer' ? text(fd, 'send_on', 10) : '';
-  if (intent === 'programmer' && !/^\d{4}-\d{2}-\d{2}$/.test(sendOn)) {
-    back(formPath, 'Choisis la date d\'envoi.', true);
+  // Envoi programmé : l'instant exact en temps universel (calculé dans le navigateur à partir de
+  // l'heure locale de l'appareil) et le nom du fuseau, pour réafficher l'heure telle qu'elle a été choisie
+  let sendOn = '';
+  let sendTz = '';
+  if (intent === 'programmer') {
+    const at = new Date(text(fd, 'send_on', 40));
+    if (Number.isNaN(at.getTime())) back(formPath, "Choisis la date et l'heure d'envoi.", true);
+    if (at.getTime() < Date.now() - 5 * 60 * 1000) back(formPath, "Choisis une date et une heure à venir.", true);
+    if (at.getTime() > Date.now() + 366 * 86400 * 1000) back(formPath, "L'envoi peut être programmé un an à l'avance au plus.", true);
+    sendOn = at.toISOString();
+    sendTz = validTimeZone(text(fd, 'send_tz', 60));
   }
 
   // Devise de la facture, et seconde devise facultative avec son taux (fixe pour € / F CFA, saisi sinon)
@@ -557,7 +568,7 @@ export async function saveInvoice(fd) {
       withholding_rate: number(fd, 'withholding_rate', { max: 100 }),
       withholding_label: text(fd, 'withholding_label', 80) || 'Retenue à la source',
       period,
-      notes: text(fd, 'notes', 1000), send_on: sendOn, doc_type: docType,
+      notes: text(fd, 'notes', 1000), send_on: sendOn, send_tz: sendTz, doc_type: docType,
     });
   } catch (err) {
     back(formPath, err.message, true);

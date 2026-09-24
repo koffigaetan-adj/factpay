@@ -141,8 +141,9 @@ main { margin: 0 auto; padding: 32px 16px 80px; max-width: 1120px; width: 100%; 
 main.narrow { max-width: 760px; }
 
 h1 { font-size: 28px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-/* Barre du haut de chaque page : couleur d'origine, plus translucide avec un vrai flou derrière */
-.page-head { position: sticky; top: 0; z-index: 45; background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(18px) saturate(180%); padding: 24px 0 16px; margin: -24px 0 24px; }
+/* Barre du haut de chaque page (espace connecté) : simple et fixe dans la page, sans flou ni
+   transparence. Le flou n'est gardé que sur la page d'accueil (.site-top), pas ici. */
+.page-head { padding: 0 0 16px; }
 h2 { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
 a { color: var(--brand-text); }
 .sub { display: block; color: var(--muted); font-size: 13px; }
@@ -537,8 +538,20 @@ button.link.danger-link { color: var(--late); justify-self: start; }
 
 /* Boutons d'action en bas des formulaires */
 .form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-.schedule-box { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-.schedule-box label { min-width: 220px; }
+.schedule-box { display: grid; gap: 12px; padding: 16px; border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--brand) 4%, var(--paper)); }
+.schedule-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--brand-text); }
+.schedule-head .help { margin: 0; }
+.schedule-field { display: grid; gap: 8px; }
+.schedule-field label { max-width: 320px; }
+
+/* Champs de date et d'heure : même hauteur que les autres, icône de calendrier bien visible */
+input[type=date], input[type=datetime-local], input[type=time] { cursor: pointer; font-variant-numeric: tabular-nums; }
+input[type=date]::-webkit-calendar-picker-indicator, input[type=datetime-local]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .55; padding: 4px; border-radius: 4px; transition: opacity .15s, background-color .15s; }
+input[type=date]:hover::-webkit-calendar-picker-indicator, input[type=datetime-local]:hover::-webkit-calendar-picker-indicator,
+input[type=time]:hover::-webkit-calendar-picker-indicator { opacity: 1; background: color-mix(in srgb, var(--brand) 14%, transparent); }
+:root[data-theme="dark"] input::-webkit-calendar-picker-indicator { filter: invert(1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) input::-webkit-calendar-picker-indicator { filter: invert(1); } }
 
 /* Bouton de retour (pages de détail) */
 .back-btn {
@@ -601,7 +614,7 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
 }
 .ls-list button:hover, .ls-list [aria-selected="true"] button { background: var(--bg); }
 .ls-other { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; border: 1px dashed var(--field); color: var(--muted); }
-.mm-row .logo-select { min-width: 190px; }
+.mm-row .logo-select { min-width: 0; }
 .pay-item { display: flex; align-items: center; gap: 10px; list-style: none; margin: 6px 0 6px -18px; }
 
 /* Écran de chargement : fond et logo suivent le thème (clair / sombre) */
@@ -785,7 +798,9 @@ details.cancel form { margin-top: 12px; }
 .settings-header h2 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
 .settings-header .hint { margin: 0; }
 
-.settings-form { max-width: 640px; }
+.settings-form { max-width: 640px; gap: 16px; }
+.settings-form > fieldset { margin: 0; }
+.settings-form > .form-foot { margin-top: 0; }
 .settings-form fieldset + fieldset { margin-top: 0; }
 .form-foot { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 4px; }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; align-items: start; max-width: 1000px; }
@@ -802,13 +817,18 @@ input:disabled { background: var(--bg); color: var(--muted); }
 
 /* Mobile Money : opérateur + numéro avec indicatif du pays */
 .field-title { font-size: 14px; font-weight: 500; }
-.mm-row { display: grid; grid-template-columns: minmax(0, 170px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.mm-row { display: grid; grid-template-columns: minmax(150px, 200px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .mm-row:has(select + input) { grid-template-columns: minmax(0, 150px) minmax(0, 150px) minmax(0, 1fr) auto; }
-.phone { display: flex; }
-.phone .dial { display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--field); border-right: 0; border-radius: 4px 0 0 4px; background: var(--bg); color: var(--muted); font-size: 14px; }
-.phone input { border-radius: 0 4px 4px 0; }
+.phone { display: flex; min-width: 0; }
+.phone .dial { display: flex; flex: none; white-space: nowrap; align-items: center; padding: 0 10px; border: 1px solid var(--field); border-right: 0; border-radius: 4px 0 0 4px; background: var(--bg); color: var(--muted); font-size: 14px; }
+.phone input { flex: 1; min-width: 0; border-radius: 0 4px 4px 0; }
 .phone input[aria-invalid] { border-color: var(--late); }
 .mm-err { grid-column: 1 / -1; color: var(--late); font-size: 13px; }
+/* Téléphone : l'opérateur prend toute la ligne, le numéro et la croix passent dessous */
+@media (max-width: 560px) {
+  .mm-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .mm-row .logo-select { grid-column: 1 / -1; }
+}
 
 /* Période travaillée : type de période, options, calendrier */
 .switch-row { align-items: flex-start; }

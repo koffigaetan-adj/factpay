@@ -7,6 +7,7 @@ import PeriodPicker, { newPeriod } from '@/components/PeriodPicker';
 import { saveInvoice } from '@/app/actions';
 import SubmitButton from '@/components/SubmitButton';
 import Icon from '@/components/Icon';
+import ScheduleField from '@/components/ScheduleField';
 
 const UNITS = ['heure(s)', 'jour(s)', 'forfait', 'unité(s)', 'mois'];
 const key = () => Math.random();
@@ -274,11 +275,16 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
 
         {!quote && scheduling && (
           <div className="schedule-box">
-            <label>Date d'envoi automatique <span className="help">par exemple la fin de la mission</span>
-              <input type="date" name="send_on" min={tomorrow} defaultValue={invoice?.send_on || ''} />
-            </label>
-            <SubmitButton name="intent" value="programmer" pendingText="Prog...">Programmer l'envoi</SubmitButton>
-            <button type="button" className="link" onClick={() => setScheduling(false)}>Annuler</button>
+            <div className="schedule-head">
+              <Icon name="calendar" size={18} />
+              <strong>Envoi automatique</strong>
+              <span className="help">par exemple à la fin de la mission</span>
+            </div>
+            <ScheduleField initial={invoice?.send_on || ''} />
+            <div className="line-actions">
+              <SubmitButton name="intent" value="programmer" pendingText="Programmation...">Programmer l'envoi</SubmitButton>
+              <button type="button" className="link" onClick={() => setScheduling(false)}>Annuler</button>
+            </div>
           </div>
         )}
         <div className="form-actions">

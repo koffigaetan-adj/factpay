@@ -6,10 +6,11 @@ import ThemePicker from '@/components/ThemePicker';
 import SecuritySettings from '@/components/SecuritySettings';
 import AccountantSettings from '@/components/AccountantSettings';
 import { cookies } from 'next/headers';
-import { saveCompany, changePassword, updateProfile, requestEmailChange, deleteAccount } from '@/app/actions';
+import { saveCompany, changePassword, updateProfile, requestEmailChange } from '@/app/actions';
 import AvatarPicker from '@/components/AvatarPicker';
 import SubmitButton from '@/components/SubmitButton';
 import PasswordInput from '@/components/PasswordInput';
+import DeleteAccountForm from '@/components/DeleteAccountForm';
 import Icon from '@/components/Icon';
 import { requireCompany } from '@/lib/auth';
 import { one } from '@/lib/db';
@@ -108,12 +109,7 @@ export default async function Page({ searchParams }) {
             <p className="hint">Ton entreprise, tes clients, tes factures et tous tes fichiers (photo, logo, documents) seront effacés <strong>définitivement</strong>. Cette action est irréversible.</p>
             <details className="cancel">
               <summary className="neutral">Supprimer mon compte</summary>
-              <form action={deleteAccount} className="stack"
-                onSubmit={(e) => { if (!confirm('Supprimer définitivement ton compte et toutes ses données ?')) e.preventDefault(); }}>
-                <PasswordInput label="Mot de passe actuel" />
-                <label>Tape SUPPRIMER pour confirmer<input name="confirm" required pattern="SUPPRIMER" autoComplete="off" placeholder="SUPPRIMER" /></label>
-                <div><SubmitButton className="danger" pendingText="Suppression...">Supprimer définitivement mon compte</SubmitButton></div>
-              </form>
+              <DeleteAccountForm />
             </details>
           </section>
         </div>

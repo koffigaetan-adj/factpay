@@ -20,9 +20,10 @@ export default async function Page({ searchParams }) {
         </div>
       </div>
       <Flash searchParams={searchParams} />
-      <form action={saveCompany} className="card stack">
+      {/* Les rubriques sont chacune dans leur carte : pas de grand cadre autour */}
+      <form action={saveCompany} className="stack settings-form">
         <CompanyFields c={{ email: user.email }} />
-        <div><button>Terminer</button></div>
+        <div className="form-foot"><button>Terminer</button></div>
       </form>
     </main>
   );

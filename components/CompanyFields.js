@@ -8,6 +8,9 @@ import LogoSelect from '@/components/LogoSelect';
 
 const row = (m = {}) => ({ key: Math.random(), operator: m.operator || '', other: '', number: m.number || '' });
 
+// Préfixe de numérotation : lettres A à Z seulement, mises en majuscules pendant la frappe
+const prefixInput = (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); };
+
 // Numéros Mobile Money : un opérateur (liste du pays, ou « Autre ») et un numéro au format du pays
 function MobileAccounts({ country, initial, legacy }) {
   const c = countryOf(country);
@@ -113,6 +116,9 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
         <>
           <fieldset className="card" style={{ padding: '24px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Virement bancaire</h3>
+            <label>Intitulé du compte <span className="help">exactement comme sur ton RIB</span>
+              <input name="account_holder" maxLength={120} defaultValue={c.account_holder} placeholder="Ex. KODJO AMA ou STUDIO KODJO SARL" autoComplete="off" />
+            </label>
             <div className="row">
               <div className="field">
                 <span className="field-title">Banque</span>
@@ -196,7 +202,8 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Devis</h3>
             <div className="row">
               <label>Préfixe des devis <span className="help">{`DEV → DEV-${code}-0001`}</span>
-                <input name="quote_prefix" maxLength={10} defaultValue={c.quote_prefix || 'DEV'} />
+                <input name="quote_prefix" maxLength={10} defaultValue={c.quote_prefix || 'DEV'} onInput={prefixInput}
+                  pattern="[A-Z]+" title="Lettres de A à Z uniquement" autoCapitalize="characters" spellCheck={false} />
               </label>
               <label>Durée de validité (jours)<input name="quote_validity" type="number" min="1" max="365" defaultValue={c.quote_validity ?? 30} /></label>
             </div>
@@ -205,7 +212,8 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
           <fieldset className="card" style={{ padding: '24px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Numérotation et mentions</h3>
             <label>Préfixe des factures <span className="help">{`FAC → FAC-${code}-0001 (${code} = ton code de compte ; le compteur ne repart jamais à zéro)`}</span>
-              <input name="invoice_prefix" maxLength={10} defaultValue={c.invoice_prefix || 'FAC'} style={{ maxWidth: 200 }} />
+              <input name="invoice_prefix" maxLength={10} defaultValue={c.invoice_prefix || 'FAC'} style={{ maxWidth: 200 }} onInput={prefixInput}
+                pattern="[A-Z]+" title="Lettres de A à Z uniquement" autoCapitalize="characters" spellCheck={false} />
             </label>
             <label>Mention en bas de facture <span className="help">facultatif, par exemple une mention légale</span>
               <textarea name="footer_note" rows={2} defaultValue={c.footer_note} />

@@ -9,7 +9,7 @@ import {
 import { requireCompany } from '@/lib/auth';
 import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages, isQuote, reminderDays } from '@/lib/invoices';
 import { money, altMoney, num, rateLabel } from '@/lib/money';
-import { frDate, today } from '@/lib/dates';
+import { frDate, frDateTime, today } from '@/lib/dates';
 import { paymentMethodOptions, whatsappLink } from '@/lib/payment';
 import Icon from '@/components/Icon';
 import { shiftPeriod, describePeriod } from '@/lib/period';
@@ -123,7 +123,7 @@ export default async function Page({ params, searchParams }) {
         <section>
           <h2>Suivi</h2>
           <dl className="stack" style={{ margin: 0 }}>
-            {inv.send_on && editable && <Fact label="Envoi automatique prévu">{frDate(inv.send_on)}</Fact>}
+            {inv.send_on && editable && <Fact label="Envoi automatique prévu">{frDateTime(inv.send_on, inv.send_tz)}</Fact>}
             {inv.issue_date && <Fact label={quote ? 'Émis le' : 'Émise le'}>{frDate(inv.issue_date)}</Fact>}
             {inv.due_date && <Fact label={quote ? "Valable jusqu'au" : 'Échéance'}>{frDate(inv.due_date)}</Fact>}
             {inv.sent_at && <Fact label={quote ? 'Envoyé au client' : 'Envoyée au client'}>{frDate(inv.sent_at)}</Fact>}

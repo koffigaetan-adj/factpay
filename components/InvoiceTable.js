@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { money } from '@/lib/money';
-import { frDate } from '@/lib/dates';
+import { frDate, frDateTime } from '@/lib/dates';
 import { statusOf } from '@/lib/status';
 import { pubId } from '@/lib/ids';
 
@@ -22,7 +22,7 @@ export default function InvoiceTable({ invoices }) {
                 </td>
                 <td>{i.client_name}</td>
                 <td>
-                  {i.issue_date ? frDate(i.issue_date) : i.send_on ? `Envoi le ${frDate(i.send_on)}` : '—'}
+                  {i.issue_date ? frDate(i.issue_date) : i.send_on ? `Envoi le ${frDateTime(i.send_on, i.send_tz)}` : '—'}
                   {i.due_date && !['payee'].includes(i.status) && <span className="sub">échéance {frDate(i.due_date)}</span>}
                 </td>
                 <td className="n">{money(i.amount_due, i.currency)}</td>
