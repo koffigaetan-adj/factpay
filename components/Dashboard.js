@@ -16,7 +16,7 @@ function niceMax(v) {
 const compact = (n) => new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 // Le tableau de bord à partir des données déjà lues (séparé pour pouvoir l'afficher avec des données d'exemple)
-export default function Dashboard({ user, company, invoices, clientCount, flash }) {
+export default function Dashboard({ user, company, invoices, quotes = [], clientCount, flash }) {
   const cur = company.currency;
   const year = new Date().getUTCFullYear();
   const now = today();
@@ -55,11 +55,13 @@ export default function Dashboard({ user, company, invoices, clientCount, flash 
 
   // Ce qui demande une action, du plus urgent au moins urgent
   const failed = invoices.filter((i) => i.status === 'emise' && i.send_error);
+  const acceptedQuotes = quotes.filter((i) => i.status === 'acceptee');
   const scheduled = invoices.filter((i) => i.status === 'programmee').sort((a, b) => a.send_on.localeCompare(b.send_on));
   const todo = [
     toCheck.length && { cls: 'check', href: '/factures?filtre=attente', label: `${toCheck.length} paiement${toCheck.length > 1 ? 's' : ''} signalé${toCheck.length > 1 ? 's' : ''} à vérifier`, detail: 'Vérifie que l\'argent est arrivé, puis confirme.' },
     late.length && { cls: 'late', href: '/factures?filtre=retard', label: `${late.length} facture${late.length > 1 ? 's' : ''} en retard`, detail: `${money(sum(late, 'amount_due'), cur)} attendus. Relance ou renvoie la facture.` },
     failed.length && { cls: 'late', href: `/factures/${failed[0].id}`, label: `${failed.length} envoi${failed.length > 1 ? 's' : ''} en échec`, detail: 'Nouvel essai automatique chaque matin, ou renvoie à la main.' },
+    acceptedQuotes.length && { cls: 'paid', href: `/factures/${acceptedQuotes[0].id}`, label: `${acceptedQuotes.length} devis accepté${acceptedQuotes.length > 1 ? 's' : ''} à facturer`, detail: 'Transforme-le en facture en un clic.' },
     scheduled.length && { cls: 'draft', href: `/factures/${scheduled[0].id}`, label: `${scheduled.length} envoi${scheduled.length > 1 ? 's' : ''} programmé${scheduled.length > 1 ? 's' : ''}`, detail: `Prochain le ${frDate(scheduled[0].send_on)}.` },
   ].filter(Boolean);
 

@@ -20,7 +20,7 @@ export default async function Page({ params, searchParams }) {
   return (
     <>
       <div className="page-head">
-        <div><Link href={`/factures/${invoice.id}`}>← Retour</Link><h1>Modifier le brouillon</h1></div>
+        <div><Link href={`/factures/${invoice.id}`}>← Retour</Link><h1>{invoice.doc_type === 'devis' ? 'Modifier le devis' : 'Modifier la facture'}</h1></div>
       </div>
       <Flash searchParams={searchParams} />
       <InvoiceEditor

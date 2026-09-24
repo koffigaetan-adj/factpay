@@ -57,6 +57,8 @@ function MobileAccounts({ country, initial, legacy }) {
 // les paramètres une seule par onglet. Chaque rubrique affichée est signalée au serveur (champ « sections »).
 export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiement', 'factures'] }) {
   const [country, setCountry] = useState(c.country || 'TG');
+  // Milieu des numéros : année sur 2 chiffres + numéro du compte (FAC-2612-0001)
+  const code = `${String(new Date().getFullYear()).slice(-2)}${c.owner_id ?? ''}`;
   const show = (x) => sections.includes(x);
   return (
     <>
@@ -159,8 +161,29 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
           </fieldset>
 
           <fieldset>
+            <legend>Relances</legend>
+            <label className="check">
+              <input type="checkbox" name="reminders_enabled" defaultChecked={c.reminders_enabled ?? true} />
+              <span>Relancer automatiquement les clients quand une facture dépasse son échéance (un e-mail poli avec la facture et le lien de paiement).</span>
+            </label>
+            <label>Jours après l'échéance <span className="help">séparés par des virgules, 5 relances au plus</span>
+              <input name="reminder_days" defaultValue={c.reminder_days || '3,10'} placeholder="3,10" style={{ maxWidth: 200 }} />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Devis</legend>
+            <div className="row">
+              <label>Préfixe des devis <span className="help">{`DEV → DEV-${code}-0001`}</span>
+                <input name="quote_prefix" maxLength={10} defaultValue={c.quote_prefix || 'DEV'} />
+              </label>
+              <label>Durée de validité (jours)<input name="quote_validity" type="number" min="1" max="365" defaultValue={c.quote_validity ?? 30} /></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
             <legend>Numérotation et mentions</legend>
-            <label>Préfixe des numéros <span className="help">FAC → FAC-2026-0001</span>
+            <label>Préfixe des factures <span className="help">{`FAC → FAC-${code}-0001 (${code.slice(0, 2)} = année${c.owner_id ? `, ${c.owner_id} = ton n° de compte` : ''})`}</span>
               <input name="invoice_prefix" maxLength={10} defaultValue={c.invoice_prefix || 'FAC'} style={{ maxWidth: 200 }} />
             </label>
             <label>Mention en bas de facture <span className="help">facultatif, par exemple une mention légale</span>

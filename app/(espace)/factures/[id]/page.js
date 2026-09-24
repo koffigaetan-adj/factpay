@@ -1,46 +1,68 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Flash from '@/components/Flash';
-import { sendInvoiceNow, confirmInvoicePayment, deleteInvoice, resendReceipt, cancelInvoice, reopenPayment } from '@/app/actions';
+import {
+  sendInvoiceNow, confirmInvoicePayment, deleteInvoice, resendReceipt, cancelInvoice, reopenPayment,
+  remindNow, duplicateDocument, convertQuote,
+} from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
-import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages } from '@/lib/invoices';
+import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages, isQuote, reminderDays } from '@/lib/invoices';
 import { money, altMoney, num, rateLabel } from '@/lib/money';
 import { frDate, today } from '@/lib/dates';
 import { paymentMethodOptions } from '@/lib/payment';
+import { shiftPeriod, describePeriod } from '@/lib/period';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
 import { statusOf } from '@/lib/status';
 
 export const metadata = { title: 'Facture' };
+
+// Une ligne « intitulé : valeur » du suivi
+const Fact = ({ label, children }) => <div><dt className="sub">{label}</dt><dd style={{ margin: 0 }}>{children}</dd></div>;
 
 export default async function Page({ params, searchParams }) {
   const { id } = await params;
   const { company } = await requireCompany();
   const inv = await getInvoice(company.id, id);
   if (!inv) notFound();
+  const quote = isQuote(inv);
+  const word = quote ? 'Devis' : 'Facture';
   const st = statusOf(inv);
   const cur = inv.currency;
   const editable = EDITABLE.includes(inv.status);
   const hidden = <input type="hidden" name="id" value={inv.id} />;
   const messages = inv.number ? await listMessages(inv.id) : [];
+  const open = ['emise', 'envoyee'].includes(inv.status);
+  const late = !quote && open && inv.due_date && inv.due_date < today();
+  const canResend = quote ? ['brouillon', 'emise', 'envoyee'].includes(inv.status) : !['payee', 'annulee'].includes(inv.status);
+  // « Dupliquer pour octobre 2026 » quand la facture porte sur un mois entier
+  const nextMonth = inv.period?.mode === 'mois' ? describePeriod(shiftPeriod(inv.period, 1)) : '';
+  const steps = reminderDays(company);
 
   return (
     <>
       <div className="page-head">
         <div>
-          <Link href="/factures">← Factures</Link>
-          <h1>{inv.number ? `Facture ${inv.number}` : 'Brouillon'}</h1>
+          <Link href={quote ? '/devis' : '/factures'}>← {quote ? 'Devis' : 'Factures'}</Link>
+          <h1>{inv.number ? `${word} ${inv.number}` : `Brouillon de ${word.toLowerCase()}`}</h1>
           <span className={`status ${st.cls}`}>{st.label}</span>
         </div>
         <div className="actions">
           <a className="button secondary" href={`/factures/${inv.id}/pdf`} target="_blank" rel="noopener">PDF</a>
+          {inv.credit_number && <a className="button secondary" href={`/factures/${inv.id}/avoir`} target="_blank" rel="noopener">Avoir {inv.credit_number}</a>}
           {editable && <Link className="button secondary" href={`/factures/${inv.id}/modifier`}>Modifier</Link>}
-          {!['payee', 'annulee'].includes(inv.status) && (
+          <form action={duplicateDocument} className="inline">{hidden}
+            <button className="secondary">{nextMonth ? `Dupliquer pour ${nextMonth}` : 'Dupliquer'}</button>
+          </form>
+          {canResend && (
             <form action={sendInvoiceNow} className="inline">{hidden}
               <button className={editable ? '' : 'secondary'}>{editable ? 'Envoyer maintenant' : 'Renvoyer au client'}</button>
             </form>
           )}
-          {['emise', 'envoyee', 'signalee'].includes(inv.status) && <a className="button" href="#statut">Marquer comme payée</a>}
-          {inv.status === 'payee' && (
+          {quote && ['emise', 'envoyee', 'acceptee'].includes(inv.status) && (
+            <form action={convertQuote} className="inline">{hidden}<button>Transformer en facture</button></form>
+          )}
+          {!quote && ['emise', 'envoyee', 'signalee'].includes(inv.status) && <a className="button" href="#statut">Marquer comme payée</a>}
+          {!quote && inv.status === 'payee' && (
             <form action={resendReceipt} className="inline">{hidden}<button className="secondary">Renvoyer la facture payée</button></form>
           )}
         </div>
@@ -89,25 +111,30 @@ export default async function Page({ params, searchParams }) {
         <section>
           <h2>Suivi</h2>
           <dl className="stack" style={{ margin: 0 }}>
-            {inv.send_on && editable && <div><dt className="sub">Envoi automatique prévu</dt><dd style={{ margin: 0 }}>{frDate(inv.send_on)}</dd></div>}
-            {inv.issue_date && <div><dt className="sub">Émise le</dt><dd style={{ margin: 0 }}>{frDate(inv.issue_date)}</dd></div>}
-            {inv.due_date && <div><dt className="sub">Échéance</dt><dd style={{ margin: 0 }}>{frDate(inv.due_date)}</dd></div>}
-            {inv.sent_at && <div><dt className="sub">Envoyée au client</dt><dd style={{ margin: 0 }}>{frDate(inv.sent_at)}</dd></div>}
+            {inv.send_on && editable && <Fact label="Envoi automatique prévu">{frDate(inv.send_on)}</Fact>}
+            {inv.issue_date && <Fact label={quote ? 'Émis le' : 'Émise le'}>{frDate(inv.issue_date)}</Fact>}
+            {inv.due_date && <Fact label={quote ? "Valable jusqu'au" : 'Échéance'}>{frDate(inv.due_date)}</Fact>}
+            {inv.sent_at && <Fact label={quote ? 'Envoyé au client' : 'Envoyée au client'}>{frDate(inv.sent_at)}</Fact>}
+            {inv.reminders_sent > 0 && <Fact label="Relances envoyées">{inv.reminders_sent}, la dernière le {frDate(inv.last_reminder_at)}</Fact>}
+            {inv.accepted_at && <Fact label="Accepté par le client">{frDate(inv.accepted_at)}</Fact>}
+            {inv.refused_at && <Fact label="Refusé par le client">{frDate(inv.refused_at)}</Fact>}
+            {inv.converted_invoice_id && <Fact label="Facture créée"><Link href={`/factures/${inv.converted_invoice_id}`}>Voir la facture</Link></Fact>}
+            {inv.source_quote_id && <Fact label="Issue du devis"><Link href={`/factures/${inv.source_quote_id}`}>Voir le devis</Link></Fact>}
             {inv.paid_declared_at && (
-              <div>
-                <dt className="sub">Paiement signalé par le client</dt>
-                <dd style={{ margin: 0 }}>
-                  {frDate(inv.paid_declared_at)}, référence <strong>{inv.payment_ref}</strong><br />
-                  <a href={`/factures/${inv.id}/justificatif`} target="_blank" rel="noopener">Voir le justificatif</a>
-                </dd>
-              </div>
+              <Fact label="Paiement signalé par le client">
+                {frDate(inv.paid_declared_at)}, référence <strong>{inv.payment_ref}</strong><br />
+                <a href={`/factures/${inv.id}/justificatif`} target="_blank" rel="noopener">Voir le justificatif</a>
+              </Fact>
             )}
             {inv.confirmed_at && (
-              <div><dt className="sub">Payée le</dt><dd style={{ margin: 0 }}>{frDate(inv.confirmed_at)}{inv.payment_method && ` · ${inv.payment_method}`}{inv.payment_ref && !inv.paid_declared_at && ` · réf. ${inv.payment_ref}`}</dd></div>
+              <Fact label="Payée le">{frDate(inv.confirmed_at)}{inv.payment_method && ` · ${inv.payment_method}`}{inv.payment_ref && !inv.paid_declared_at && ` · réf. ${inv.payment_ref}`}</Fact>
             )}
-            {inv.receipt_sent_at && <div><dt className="sub">Facture payée envoyée au client</dt><dd style={{ margin: 0 }}>{frDate(inv.receipt_sent_at)}</dd></div>}
+            {inv.receipt_sent_at && <Fact label="Facture payée envoyée au client">{frDate(inv.receipt_sent_at)}</Fact>}
             {inv.cancelled_at && (
-              <div><dt className="sub">Annulée</dt><dd style={{ margin: 0 }}>{frDate(inv.cancelled_at)}{inv.cancel_reason && <><br /><span className="muted">Motif : {inv.cancel_reason}</span></>}</dd></div>
+              <Fact label="Annulée">
+                {frDate(inv.cancelled_at)}{inv.credit_number && <>, avoir <a href={`/factures/${inv.id}/avoir`} target="_blank" rel="noopener">{inv.credit_number}</a></>}
+                {inv.cancel_reason && <><br /><span className="muted">Motif : {inv.cancel_reason}</span></>}
+              </Fact>
             )}
           </dl>
           {inv.number && (
@@ -119,7 +146,20 @@ export default async function Page({ params, searchParams }) {
           {editable && (
             <form action={deleteInvoice} style={{ marginTop: 20 }}>{hidden}<button className="danger">Supprimer le brouillon</button></form>
           )}
-          {['emise', 'envoyee', 'signalee'].includes(inv.status) && (
+
+          {late && (
+            <div className="status-box">
+              <h3>En retard depuis le {frDate(inv.due_date)}</h3>
+              <p className="help">
+                {company.reminders_enabled && steps.length
+                  ? `Relances automatiques ${steps.map((d) => `J+${d}`).join(' et ')} après l'échéance${inv.reminders_sent >= steps.length ? ' : toutes envoyées.' : '.'}`
+                  : 'Les relances automatiques sont désactivées (Paramètres → Factures).'}
+              </p>
+              <form action={remindNow}>{hidden}<button className="secondary">Relancer maintenant</button></form>
+            </div>
+          )}
+
+          {!quote && ['emise', 'envoyee', 'signalee'].includes(inv.status) && (
             <div className="status-box" id="statut">
               <h3>Marquer comme payée</h3>
               <p className="help">
@@ -145,7 +185,7 @@ export default async function Page({ params, searchParams }) {
               </form>
             </div>
           )}
-          {inv.status === 'payee' && (
+          {!quote && inv.status === 'payee' && (
             <details className="cancel">
               <summary>Remettre en attente de paiement</summary>
               <form action={reopenPayment} className="stack">{hidden}
@@ -154,11 +194,11 @@ export default async function Page({ params, searchParams }) {
               </form>
             </details>
           )}
-          {CANCELLABLE.includes(inv.status) && (
+          {!quote && CANCELLABLE.includes(inv.status) && (
             <details className="cancel">
               <summary>Annuler cette facture</summary>
               <form action={cancelInvoice} className="stack">{hidden}
-                <p className="help" style={{ margin: 0 }}>Possible tant que le client n'a pas signalé de paiement. La facture garde son numéro, le lien de paiement est désactivé et le client est prévenu par e-mail.</p>
+                <p className="help" style={{ margin: 0 }}>Possible tant que le client n'a pas signalé de paiement. La facture garde son numéro, un avoir est émis pour l'annuler dans les comptes, et le client le reçoit par e-mail.</p>
                 <label>Motif <span className="help">facultatif, transmis au client</span>
                   <textarea name="reason" rows={2} maxLength={500} placeholder="Ex. Erreur sur le nombre de jours, une facture corrigée va suivre." />
                 </label>
@@ -172,7 +212,7 @@ export default async function Page({ params, searchParams }) {
       {messages.length > 0 && (
         <section className="messages">
           <h2>Messages du client</h2>
-          <p className="hint">Envoyés depuis la page de la facture. Tu les as aussi reçus par e-mail : réponds depuis ta messagerie.</p>
+          <p className="hint">Envoyés depuis la page du document. Tu les as aussi reçus par e-mail : réponds depuis ta messagerie.</p>
           <ol>
             {messages.map((m) => (
               <li key={m.id}><span className="sub">{frDate(m.created_at)}</span><p>{m.body}</p></li>

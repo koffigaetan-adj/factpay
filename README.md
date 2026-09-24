@@ -9,11 +9,17 @@ Logiciel de facturation en ligne, multi-comptes. Chaque personne crée son compt
 - **Clients** : ajout, modification, suppression (seulement s'ils n'ont pas de facture).
 - **Factures** :
   - plusieurs lignes (heures, jours, forfait…) et TVA facultative ;
-  - numérotation automatique sans trou (`FAC-2026-0001`), attribuée au moment de l'envoi ;
+  - numérotation automatique sans trou (`FAC-2612-0001` : préfixe, année sur 2 chiffres + numéro du compte, puis compteur de l'année), attribuée au moment de l'envoi ;
   - envoi immédiat, envoi programmé à une date, ou brouillon ;
   - PDF joint à l'e-mail.
 - **Côté client** : il ouvre le lien reçu par e-mail. Il voit la facture, passe de € à F CFA avec un bouton (parité fixe 1 € = 655,957 F CFA), télécharge le PDF et signale son paiement avec une référence et un justificatif.
 - **Suivi** : l'entreprise est prévenue par e-mail, consulte le justificatif et confirme le paiement. Le tableau de bord indique ce qui reste à encaisser, ce qui a été encaissé, la part mise de côté pour les impôts et le net.
+- **Relances** : e-mail automatique aux clients en retard (par défaut 3 et 10 jours après l'échéance), ou à la main.
+- **Annulation** : une facture envoyée non payée peut être annulée ; un avoir numéroté (`AV-2612-0001`) est émis et envoyé au client.
+- **Devis** : numérotés à part (`DEV-2612-0001`), acceptés ou refusés en ligne par le client, transformés en facture en un clic.
+- **Dupliquer** : copie d'une facture en brouillon, avec la période décalée au mois suivant.
+- **Export** : fichier CSV (Excel) des factures de l'année pour le comptable.
+- **Mode sombre** : suit le réglage de l'appareil.
 - **Fiches de paie** : prochaine étape.
 
 ## Technologies
@@ -36,6 +42,8 @@ npm install
 cp .env.example .env.local
 npm run dev
 ```
+
+Pour lancer les tests automatiques (calculs, factures, devis, relances, sur une base en mémoire) : `npm test`.
 
 Ouvre http://localhost:3000, puis crée un compte. Aucun compte extérieur n'est nécessaire : la base et les fichiers sont dans `.data/`. Supprime ce dossier pour repartir de zéro.
 

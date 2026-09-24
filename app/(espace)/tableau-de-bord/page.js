@@ -8,9 +8,10 @@ export const metadata = { title: 'Tableau de bord' };
 
 export default async function Page({ searchParams }) {
   const { user, company } = await requireCompany();
-  const [invoices, clients] = await Promise.all([
+  const [invoices, quotes, clients] = await Promise.all([
     listInvoices(company.id),
+    listInvoices(company.id, 'devis'),
     q('SELECT count(*)::int AS n FROM clients WHERE company_id = $1', [company.id]),
   ]);
-  return <Dashboard user={user} company={company} invoices={invoices} clientCount={clients[0].n} flash={<Flash searchParams={searchParams} />} />;
+  return <Dashboard user={user} company={company} invoices={invoices} quotes={quotes} clientCount={clients[0].n} flash={<Flash searchParams={searchParams} />} />;
 }

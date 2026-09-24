@@ -27,7 +27,10 @@ export default async function Page({ searchParams }) {
     <>
       <div className="page-head">
         <h1>Factures</h1>
-        <div className="actions"><Link className="button" href="/factures/nouvelle">Nouvelle facture</Link></div>
+        <div className="actions">
+          <a className="button secondary" href={`/factures/export?annee=${new Date().getUTCFullYear()}`}>Exporter {new Date().getUTCFullYear()} (Excel)</a>
+          <Link className="button" href="/factures/nouvelle">Nouvelle facture</Link>
+        </div>
       </div>
       <Flash searchParams={searchParams} />
       <nav className="tabs" aria-label="Filtrer les factures">

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { workedDays, offReason, isWeekend, describePeriod, periodHours } from '@/lib/period';
-import { holidayName } from '@/lib/holidays';
+import { holidayName, COUNTRIES } from '@/lib/holidays';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const monthLabel = (ym) => new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${ym}-01T12:00:00Z`));
@@ -71,8 +71,13 @@ export default function PeriodPicker({ value: p, onChange }) {
       <div className="period-opts">
         <label className="check"><input type="checkbox" checked={p.exclude_weekends} onChange={(e) => set({ exclude_weekends: e.target.checked })} />
           <span>Exclure les week-ends</span></label>
-        <label className="check"><input type="checkbox" checked={p.exclude_holidays} onChange={(e) => set({ exclude_holidays: e.target.checked })} />
-          <span>Exclure les jours fériés (France)</span></label>
+        <span className="check holi">
+          <input id="excl-hol" type="checkbox" checked={p.exclude_holidays} onChange={(e) => set({ exclude_holidays: e.target.checked })} />
+          <label htmlFor="excl-hol">Exclure les jours fériés</label>
+          <select aria-label="Pays des jours fériés" value={p.country || 'FR'} onChange={(e) => set({ country: e.target.value })}>
+            {Object.entries(COUNTRIES).map(([code, c]) => <option key={code} value={code}>{c.label}</option>)}
+          </select>
+        </span>
       </div>
 
       <div className="cal">
@@ -86,7 +91,7 @@ export default function PeriodPicker({ value: p, onChange }) {
           {cells.map((d, i) => {
             if (!d) return <span key={`x${i}`} />;
             const off = offReason(d, p);
-            const holiday = holidayName(d);
+            const holiday = holidayName(d, p.country || 'FR');
             const cls = ['cal-day', selected.has(d) && 'on', off && 'off', holiday && 'hol', isWeekend(d) && 'we'].filter(Boolean).join(' ');
             const title = [holiday, off === 'week-end' && 'Week-end exclu'].filter(Boolean).join(' · ') || undefined;
             return (

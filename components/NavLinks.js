@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const links = [
   ['/tableau-de-bord', 'Tableau de bord'],
   ['/factures', 'Factures'],
+  ['/devis', 'Devis'],
   ['/clients', 'Clients'],
   ['/parametres', 'Paramètres'],
 ];

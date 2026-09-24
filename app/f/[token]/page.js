@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import Flash from '@/components/Flash';
 import CurrencySwitch from '@/components/CurrencySwitch';
-import { declarePayment, contactCompany } from '@/app/actions';
-import { getInvoiceByToken } from '@/lib/invoices';
+import { declarePayment, contactCompany, answerQuote } from '@/app/actions';
+import { getInvoiceByToken, issuedCompany, isQuote } from '@/lib/invoices';
 import { money, altMoney, short, num, rateLabel, fixedRate } from '@/lib/money';
 import { frDate } from '@/lib/dates';
 import { logoUrl } from '@/lib/url';
@@ -17,7 +17,11 @@ export default async function Page({ params, searchParams }) {
   const { token } = await params;
   const found = await getInvoiceByToken(token);
   if (!found || !found.invoice.number) notFound();
-  const { invoice: inv, company: co } = found;
+  const { invoice: inv } = found;
+  // Identité de l'entreprise telle qu'à l'émission ; moyens de paiement à jour
+  const co = issuedCompany(inv, found.company);
+  const quote = isQuote(inv);
+  const word = quote ? 'Devis' : 'Facture';
   const cur = inv.currency;
   const withAlt = !!(inv.alt_currency && inv.alt_rate);
 
@@ -28,10 +32,30 @@ export default async function Page({ params, searchParams }) {
 
   const sp = (await searchParams) || {};
   let action;
-  if (inv.status === 'annulee') {
+  if (quote) {
+    // Devis : le client l'accepte ou le refuse
+    if (['acceptee', 'convertie'].includes(inv.status)) {
+      action = <div className="done paid"><h2>Devis accepté</h2><p>Vous avez accepté ce devis le {frDate(inv.accepted_at)}. {co.name} a été prévenu et vous enverra la facture.</p></div>;
+    } else if (inv.status === 'refusee') {
+      action = <div className="done void"><h2>Devis refusé</h2><p>Vous avez refusé ce devis le {frDate(inv.refused_at)}. {co.name} a été prévenu.</p></div>;
+    } else {
+      action = (
+        <form action={answerQuote} className="stack pay">
+          <input type="hidden" name="token" value={inv.token} />
+          <h2>Votre réponse</h2>
+          <p className="hint">Ce devis est valable jusqu'au {frDate(inv.due_date)}. {co.name} sera prévenu de votre réponse.</p>
+          <div className="answer">
+            <button name="answer" value="accepter">Accepter le devis</button>
+            <button name="answer" value="refuser" className="secondary">Refuser</button>
+          </div>
+        </form>
+      );
+    }
+  } else if (inv.status === 'annulee') {
     action = (
       <div className="done void"><h2>Facture annulée</h2>
         <p>{co.name} a annulé cette facture le {frDate(inv.cancelled_at)}. Vous n'avez rien à régler à ce titre.</p>
+        {inv.credit_number && <p><a href={`/f/${inv.token}/avoir`}>Télécharger l'avoir {inv.credit_number}</a></p>}
         {inv.cancel_reason && <p className="muted">Motif : {inv.cancel_reason}</p>}
       </div>
     );
@@ -64,8 +88,8 @@ export default async function Page({ params, searchParams }) {
       <article className="sheet">
         <header className="sheet-head">
           <div>
-            <h1>Facture {inv.number}</h1>
-            <p className="sub">Émise le {frDate(inv.issue_date)}</p>
+            <h1>{word} {inv.number}</h1>
+            <p className="sub">{quote ? 'Émis' : 'Émise'} le {frDate(inv.issue_date)}</p>
           </div>
           <address>
             {logoUrl(co) && <img src={logoUrl(co)} alt={co.name} className="co-logo" />}
@@ -74,7 +98,7 @@ export default async function Page({ params, searchParams }) {
           </address>
         </header>
         {withAlt && <CurrencySwitch main={short(cur)} alt={short(inv.alt_currency)} />}
-        <p className="billed"><span className="sub">Facturé à</span><strong>{inv.client_name}</strong>{inv.client_address && <><br />{inv.client_address}</>}</p>
+        <p className="billed"><span className="sub">{quote ? 'Destinataire' : 'Facturé à'}</span><strong>{inv.client_name}</strong>{inv.client_address && <><br />{inv.client_address}</>}</p>
         {inv.title && <p><strong>{inv.title}</strong></p>}
         <div className="scroll">
           <table>
@@ -104,7 +128,7 @@ export default async function Page({ params, searchParams }) {
           </div>
         )}
         <div className="due">
-          <span>{inv.status === 'annulee' ? 'Facture annulée, rien à régler' : inv.status === 'payee'
+          <span>{quote ? `${inv.withholding_amount > 0 ? 'Net' : 'Total'} · valable jusqu'au ${frDate(inv.due_date)}` : inv.status === 'annulee' ? 'Facture annulée, rien à régler' : inv.status === 'payee'
             ? `${inv.withholding_amount > 0 ? 'Net payé' : 'Total payé'} le ${frDate(inv.confirmed_at)}`
             : `${inv.withholding_amount > 0 ? 'Net à payer' : 'Total à payer'} avant le ${frDate(inv.due_date)}`}</span>
           <strong><Amount n={inv.amount_due} /></strong>
@@ -115,17 +139,17 @@ export default async function Page({ params, searchParams }) {
             {' '}{fixedRate(cur, inv.alt_currency) ? 'Parité fixe' : 'Taux appliqué'} : {rateLabel(cur, inv.alt_currency, inv.alt_rate)}.
           </p>
         )}
-        {inv.status !== 'annulee' && <ul className="bank">
+        {!quote && inv.status !== 'annulee' && <ul className="bank">
           {paymentLines(co).map(([label, value]) => <li key={label + value}>{label} : <strong>{value}</strong></li>)}
           <li>Référence à indiquer : <strong>{inv.number}</strong></li>
         </ul>}
         {inv.notes && <p className="muted">{inv.notes}</p>}
-        <p className="pdf-link"><a href={`/f/${inv.token}/pdf`}>Télécharger la facture en PDF</a></p>
+        <p className="pdf-link"><a href={`/f/${inv.token}/pdf`}>Télécharger {quote ? 'le devis' : 'la facture'} en PDF</a></p>
       </article>
       {action}
 
       <section className="contact" id="contact" aria-labelledby="contact-title">
-        <h2 id="contact-title">Une question sur cette facture ?</h2>
+        <h2 id="contact-title">Une question sur {quote ? 'ce devis' : 'cette facture'} ?</h2>
         <p className="hint">Écrivez directement à {co.name}. La réponse arrivera à {inv.client_email}.</p>
         {sp.contact && <p className="flash" role="status">{sp.contact}</p>}
         {sp.contact_erreur && <p className="flash err" role="alert">{sp.contact_erreur}</p>}

@@ -14,7 +14,8 @@ const periodLine = () => ({ key: key(), kind: 'period', description: 'Prestation
 const toNumber = (v) => Number(String(v).replace(',', '.')) || 0;
 const hoursLabel = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
 
-export default function InvoiceEditor({ clients, invoice, defaultCurrency, defaultAlt, defaultVat, tomorrow, thisMonth }) {
+export default function InvoiceEditor({ clients, invoice, defaultCurrency, defaultAlt, defaultVat, tomorrow, thisMonth, docType = 'facture' }) {
+  const quote = (invoice?.doc_type || docType) === 'devis';
   const [lines, setLines] = useState(() => (invoice?.lines?.length
     ? invoice.lines.map((l) => ({ key: l.id, kind: l.kind || 'service', description: l.description, quantity: String(l.quantity), unit: l.unit, unit_price: String(l.unit_price) }))
     : [emptyLine()]));
@@ -66,11 +67,12 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
     setManualRate('');
   };
 
-  const submitLabel = { envoyer: 'Enregistrer et envoyer au client', programmer: "Programmer l'envoi", brouillon: 'Enregistrer le brouillon' }[intent];
+  const submitLabel = { envoyer: 'Enregistrer et envoyer au client', programmer: "Programmer l'envoi", brouillon: 'Enregistrer le brouillon' }[quote && intent === 'programmer' ? 'envoyer' : intent];
 
   return (
     <form action={saveInvoice} className="stack">
       {invoice?.id && <input type="hidden" name="id" value={invoice.id} />}
+      <input type="hidden" name="doc_type" value={quote ? 'devis' : 'facture'} />
       <input type="hidden" name="lines" value={JSON.stringify(numeric.map(({ key: _, ...l }) => l))} />
       <input type="hidden" name="period" value={hasPeriod && period ? JSON.stringify(period) : ''} />
       <input type="hidden" name="withholding_rate" value={whRate} />
@@ -209,13 +211,15 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
         </label>
 
         <fieldset>
-          <legend>Que faire de cette facture ?</legend>
+          <legend>Que faire de {quote ? 'ce devis' : 'cette facture'} ?</legend>
           <div className="choices">
-            <label className="check"><input type="radio" name="intent" value="envoyer" checked={intent === 'envoyer'} onChange={() => setIntent('envoyer')} />
-              <span>L'envoyer maintenant au client, avec le PDF et le lien de paiement</span></label>
-            <label className="check"><input type="radio" name="intent" value="programmer" checked={intent === 'programmer'} onChange={() => setIntent('programmer')} />
-              <span>L'envoyer automatiquement à une date (par exemple la fin de la mission)</span></label>
-            {intent === 'programmer' && (
+            <label className="check"><input type="radio" name="intent" value="envoyer" checked={intent === 'envoyer' || (quote && intent === 'programmer')} onChange={() => setIntent('envoyer')} />
+              <span>{quote ? "L'envoyer maintenant au client, avec le PDF et le lien pour l'accepter" : "L'envoyer maintenant au client, avec le PDF et le lien de paiement"}</span></label>
+            {!quote && (
+              <label className="check"><input type="radio" name="intent" value="programmer" checked={intent === 'programmer'} onChange={() => setIntent('programmer')} />
+                <span>L'envoyer automatiquement à une date (par exemple la fin de la mission)</span></label>
+            )}
+            {!quote && intent === 'programmer' && (
               <label style={{ maxWidth: 240, marginLeft: 28 }}>Date d'envoi
                 <input type="date" name="send_on" required min={tomorrow} defaultValue={invoice?.send_on || ''} />
               </label>

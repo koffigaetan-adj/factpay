@@ -43,7 +43,7 @@ const LOCAL = [
   { specimen: '1 € = 655,957 F CFA', title: 'La conversion à la parité fixe', text: "Ton client voit le montant dans les deux devises et bascule d'un clic. Pour le dollar, tu indiques le taux du jour." },
   { specimen: 'Flooz · Mixx by Yas · SPI', title: 'Les moyens de paiement d\'ici', text: 'Tes numéros Mobile Money, ton RIB et ton alias SPI de la BCEAO figurent sur la facture et dans l\'e-mail.' },
   { specimen: 'Retenue à la source 5 %', title: 'La retenue, déduite du net', text: 'Le client voit ce qu\'il retient et le net exact à te verser. Rien à recalculer à la main.' },
-  { specimen: 'NIF · RCCM', title: 'Tes mentions légales', text: 'Tes identifiants apparaissent sur chaque facture, numérotée sans trou : FAC-2026-0001, 0002…' },
+  { specimen: 'NIF · RCCM', title: 'Tes mentions légales', text: 'Tes identifiants apparaissent sur chaque facture, numérotée sans trou : FAC-2612-0001, 0002…' },
 ];
 
 // Tableau de bord d'exemple (fictif) : de ce qui est facturé à ce qui te reste
@@ -54,10 +54,12 @@ const NET = [
   { label: 'Encore à mettre de côté pour les impôts', value: -450000, note: '15 % du HT, moins les retenues déjà versées' },
 ];
 
-export default async function Home() {
+export default async function Home({ searchParams }) {
   if (await currentUser()) redirect('/tableau-de-bord');
+  const deleted = (await searchParams)?.compte === 'supprime';
   return (
     <div className="landing">
+      {deleted && <p className="flash deleted" role="status">Ton compte et toutes ses données ont été supprimés.</p>}
       <header className="site-head">
         <Link href="/" aria-label="FactPay, accueil"><Logo height={48} priority /></Link>
         <nav className="site-nav">
@@ -88,7 +90,7 @@ export default async function Home() {
             <article className="demo-sheet">
               <header>
                 <div>
-                  <strong className="demo-title">Facture FAC-2026-0014</strong>
+                  <strong className="demo-title">Facture FAC-2612-0014</strong>
                   <span className="sub">À payer avant le 15 octobre 2026</span>
                 </div>
                 <address><strong>Studio Kodjo</strong><br />Lomé, Togo<br />NIF 1000000000</address>
@@ -111,7 +113,7 @@ export default async function Home() {
                 <div><dt>Retenue à la source (5 % du HT)</dt><dd><Amount n={T.withholding} minus /></dd></div>
                 <div className="due"><dt>Net à payer</dt><dd><Amount n={T.due} /></dd></div>
               </dl>
-              <p className="demo-pay">Flooz +228 90 00 00 00 · Mixx by Yas +228 70 00 00 00 · Référence FAC-2026-0014</p>
+              <p className="demo-pay">Flooz +228 90 00 00 00 · Mixx by Yas +228 70 00 00 00 · Référence FAC-2612-0014</p>
               <div className="demo-cta" aria-hidden="true">Signaler la facture comme payée</div>
             </article>
           </figure>

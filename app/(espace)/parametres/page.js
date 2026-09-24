@@ -2,7 +2,9 @@ import Link from 'next/link';
 import Flash from '@/components/Flash';
 import PasswordFields from '@/components/PasswordFields';
 import CompanyFields from '@/components/CompanyFields';
-import { saveCompany, changePassword, updateProfile } from '@/app/actions';
+import ThemePicker from '@/components/ThemePicker';
+import { cookies } from 'next/headers';
+import { saveCompany, changePassword, updateProfile, requestEmailChange, deleteAccount } from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
 import { one } from '@/lib/db';
 
@@ -13,6 +15,7 @@ const TABS = {
   entreprise: { label: 'Entreprise', hint: 'Ce qui apparaît en haut de tes factures : nom, identifiants légaux, coordonnées et logo.' },
   paiement: { label: 'Paiement', hint: 'Les moyens de paiement indiqués à tes clients sur la facture, la page de paiement et l\'e-mail.' },
   factures: { label: 'Factures', hint: 'Les réglages par défaut des nouvelles factures. Les factures déjà émises ne changent pas.' },
+  apparence: { label: 'Apparence', hint: 'Mode clair ou sombre. Ce choix vaut pour ce navigateur.' },
   compte: { label: 'Mon compte', hint: 'Ton nom, ton adresse de connexion et ton mot de passe.' },
 };
 
@@ -33,7 +36,12 @@ export default async function Page({ searchParams }) {
       <Flash searchParams={searchParams} />
       <p className="hint">{TABS[tab].hint}</p>
 
-      {tab === 'compte' ? (
+      {tab === 'apparence' ? (
+        <section className="settings-form">
+          <h2>Mode d'affichage</h2>
+          <ThemePicker current={['light', 'dark'].includes((await cookies()).get('theme')?.value) ? (await cookies()).get('theme').value : 'auto'} />
+        </section>
+      ) : tab === 'compte' ? (
         <div className="settings-grid">
           <section>
             <h2>Profil</h2>
@@ -42,10 +50,16 @@ export default async function Page({ searchParams }) {
                 <label>Prénom<input name="first_name" required maxLength={60} defaultValue={profile.first_name} autoComplete="given-name" /></label>
                 <label>Nom<input name="last_name" required maxLength={60} defaultValue={profile.last_name} autoComplete="family-name" /></label>
               </div>
-              <label>Adresse de connexion <span className="help">ne peut pas être modifiée pour l'instant</span>
-                <input value={profile.email} readOnly disabled />
-              </label>
               <div><button>Enregistrer</button></div>
+            </form>
+          </section>
+          <section>
+            <h2>Adresse e-mail</h2>
+            <p className="hint">Actuelle : <strong>{profile.email}</strong>. La nouvelle adresse ne remplace l'ancienne qu'une fois confirmée.</p>
+            <form action={requestEmailChange} className="stack">
+              <label>Nouvelle adresse<input name="email" type="email" required autoComplete="email" /></label>
+              <label>Mot de passe actuel<input name="password" type="password" required autoComplete="current-password" /></label>
+              <div><button className="secondary">Recevoir le lien de confirmation</button></div>
             </form>
           </section>
           <section>
@@ -55,6 +69,18 @@ export default async function Page({ searchParams }) {
               <PasswordFields label="Nouveau mot de passe" />
               <div><button>Changer le mot de passe</button></div>
             </form>
+          </section>
+          <section className="danger-zone">
+            <h2>Supprimer mon compte</h2>
+            <p className="hint">Supprime définitivement ton compte, ton entreprise, tes clients, tes factures et tes devis. Pense à exporter tes factures avant : c'est irréversible.</p>
+            <details>
+              <summary>Je veux supprimer mon compte</summary>
+              <form action={deleteAccount} className="stack">
+                <label>Tape SUPPRIMER pour confirmer<input name="confirm_word" required autoComplete="off" /></label>
+                <label>Mot de passe<input name="password" type="password" required autoComplete="current-password" /></label>
+                <div><button className="danger">Supprimer définitivement</button></div>
+              </form>
+            </details>
           </section>
         </div>
       ) : (
