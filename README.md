@@ -50,8 +50,8 @@ Sur vercel.com : **Add New → Project**, puis choisis le dépôt. Vercel reconn
 ### 3. Ajouter la base de données (Neon)
 Dans le projet : **Storage → Create Database → Neon (Postgres)**, région **Europe (Frankfurt)** par exemple. Vercel ajoute la variable `DATABASE_URL` automatiquement. Les tables sont créées à chaque déploiement par `scripts/setup-db.js`.
 
-### 4. Ajouter le stockage des justificatifs (Blob)
-**Storage → Create → Blob**. Vercel ajoute `BLOB_READ_WRITE_TOKEN`.
+### 4. Ajouter le stockage des fichiers (Blob)
+**Storage → Create → Blob**, accès **Private**, puis **Connect Project**. Vercel ajoute `BLOB_STORE_ID` : les justificatifs et les logos y sont rangés, et seul le logiciel peut les lire.
 
 ### 5. Configurer les e-mails (Gmail)
 1. Sur ton compte Google, active la **validation en deux étapes** (myaccount.google.com → Sécurité).
