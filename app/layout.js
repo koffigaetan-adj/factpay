@@ -4,9 +4,13 @@ import './globals.css';
 
 const sans = Public_Sans({ subsets: ['latin'], variable: '--font-sans' });
 
+// Couleur de la barre du navigateur sur téléphone
+export const viewport = { themeColor: '#1A2433' };
+
 export const metadata = {
   title: { default: 'FactPay', template: '%s · FactPay' },
-  description: 'Factures et fiches de paie en ligne, en euros ou en francs CFA.',
+  description: "Factures, devis et paiements pour les freelances d'Afrique de l'Ouest, en francs CFA ou en euros.",
+  appleWebApp: { capable: true, title: 'FactPay', statusBarStyle: 'black-translucent' },
 };
 
 // Apparence choisie dans Paramètres (cookie « theme ») : clair ou sombre forcé, sinon celle de l'appareil

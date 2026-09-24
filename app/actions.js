@@ -10,12 +10,13 @@ import { sendMail, mailTestMode } from '@/lib/mail';
 import { verifyEmail, resetPasswordEmail, changeEmailEmail, loginCodeEmail, securityNoticeEmail, withImages } from '@/lib/emails';
 import * as twofa from '@/lib/twofa';
 import { newSecret, verifyCode } from '@/lib/totp';
-import { saveFile } from '@/lib/storage';
+import { saveFile, deleteFile } from '@/lib/storage';
 import { appUrl } from '@/lib/url';
 import { CURRENCIES, fixedRate } from '@/lib/money';
 import { passwordProblem } from '@/lib/password';
 import { cleanPeriod, periodHours } from '@/lib/period';
 import * as documents from '@/lib/documents';
+import * as accountant from '@/lib/accountant';
 import { COUNTRIES, cleanMobiles } from '@/lib/payment';
 
 // Revient sur une page avec un message (?ok=… ou ?erreur=…)
@@ -45,6 +46,7 @@ export async function signup(fd) {
   const email = text(fd, 'email', 200).toLowerCase();
   const password = String(fd.get('password') || '');
   if (!firstName || !lastName) back('/inscription', 'Indique ton prénom et ton nom.', true);
+  if (fd.get('terms') !== 'on') back('/inscription', "Accepte les conditions d'utilisation et la politique de confidentialité pour créer ton compte.", true);
   if (!emailOk(email)) back('/inscription', 'Indique une adresse e-mail valide.', true);
   const weak = passwordProblem(password, String(fd.get('confirm') || ''));
   if (weak) back('/inscription', weak, true);
@@ -52,8 +54,8 @@ export async function signup(fd) {
     back('/connexion', 'Un compte existe déjà avec cette adresse. Connecte-toi.', true);
   }
   const name = `${firstName} ${lastName}`;
-  const user = await one(`INSERT INTO users (email, name, first_name, last_name, password_hash)
-    VALUES ($1, $2, $3, $4, $5) RETURNING id`, [email, name, firstName, lastName, await auth.hashPassword(password)]);
+  const user = await one(`INSERT INTO users (email, name, first_name, last_name, password_hash, terms_accepted_at)
+    VALUES ($1, $2, $3, $4, $5, now()) RETURNING id`, [email, name, firstName, lastName, await auth.hashPassword(password)]);
   await auth.startSession(user.id);
   try {
     await sendVerification({ id: user.id, email, first_name: firstName });
@@ -393,6 +395,28 @@ export async function setTheme(fd) {
   back('/parametres?onglet=apparence', 'Apparence enregistrée.');
 }
 
+// Photo de profil : PNG, JPEG ou WebP, 1 Mo au plus ; ou retour à l'icône par défaut
+export async function saveAvatar(fd) {
+  const user = await auth.requireUser();
+  const tab = '/parametres?onglet=compte';
+  const old = await one('SELECT avatar_key FROM users WHERE id = $1', [user.id]);
+  if (fd.get('remove') === '1') {
+    await q('UPDATE users SET avatar_key = NULL, avatar_mime = NULL, avatar_updated_at = now() WHERE id = $1', [user.id]);
+    if (old?.avatar_key) await deleteFile(old.avatar_key);
+    revalidatePath('/', 'layout');
+    back(tab, "Photo supprimée. L'icône par défaut est revenue.");
+  }
+  const file = fd.get('avatar');
+  if (!file || typeof file === 'string' || !file.size) back(tab, 'Choisis une photo.', true);
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) back(tab, 'La photo doit être une image PNG, JPEG ou WebP.', true);
+  if (file.size > 1024 * 1024) back(tab, 'La photo dépasse 1 Mo. Réduis sa taille et réessaie.', true);
+  const key = await saveFile(file, 'avatars');
+  await q('UPDATE users SET avatar_key = $1, avatar_mime = $2, avatar_updated_at = now() WHERE id = $3', [key, file.type, user.id]);
+  if (old?.avatar_key) await deleteFile(old.avatar_key);
+  revalidatePath('/', 'layout');
+  back(tab, 'Photo de profil mise à jour.');
+}
+
 // Prénom et nom du compte (onglet Mon compte)
 export async function updateProfile(fd) {
   const user = await auth.requireUser();
@@ -630,7 +654,12 @@ export async function contactCompany(fd) {
 export async function answerQuote(fd) {
   const token = text(fd, 'token', 100);
   const accepted = fd.get('answer') === 'accepter';
-  await invoices.answerQuote(token, accepted);
+  const signedBy = text(fd, 'signed_by', 120);
+  // Accepter, c'est signer : nom complet et « bon pour accord » obligatoires
+  if (accepted && (signedBy.length < 3 || fd.get('agree') !== 'on')) {
+    redirect(`/f/${token}?erreur=${encodeURIComponent('Pour accepter, tapez votre nom complet et cochez « Bon pour accord ».')}`);
+  }
+  await invoices.answerQuote(token, accepted, signedBy);
   redirect(`/f/${token}`);
 }
 
@@ -660,4 +689,32 @@ export async function deleteDocument(fd) {
   await documents.removeDocument(company.id, Number(fd.get('id')));
   revalidatePath('/', 'layout');
   back(fd.get('from') === 'client' ? `/clients/${Number(fd.get('client_id'))}#documents` : '/documents', 'Document supprimé.');
+}
+
+// ---------- Factures récurrentes ----------
+
+export async function setRepeat(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const active = fd.get('active') === '1';
+  const r = await invoices.setRepeat(company, id, { active, day: number(fd, 'day', { min: 1, max: 28, fallback: 28 }) });
+  revalidatePath(`/factures/${id}`);
+  if (!r) back(`/factures/${id}`, 'Seule une facture déjà émise peut servir de modèle.', true);
+  back(`/factures/${id}`, r.active
+    ? `Facture récurrente : une copie partira automatiquement chaque mois, la prochaine le ${new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${r.next}T12:00:00Z`))}.`
+    : 'Récurrence arrêtée : plus aucune copie ne partira.');
+}
+
+// ---------- Accès comptable ----------
+
+export async function createAccountantAccess() {
+  const { company } = await auth.requireCompany();
+  await accountant.createAccountantLink(company.id);
+  back('/parametres?onglet=comptable', 'Lien créé. Copie-le et envoie-le à ton comptable.');
+}
+
+export async function revokeAccountantAccess() {
+  const { company } = await auth.requireCompany();
+  await accountant.revokeAccountantLink(company.id);
+  back('/parametres?onglet=comptable', "Lien désactivé : ton comptable n'a plus accès.");
 }

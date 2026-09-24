@@ -3,13 +3,14 @@ import { notFound } from 'next/navigation';
 import Flash from '@/components/Flash';
 import {
   sendInvoiceNow, confirmInvoicePayment, deleteInvoice, resendReceipt, cancelInvoice, reopenPayment,
-  remindNow, duplicateDocument, convertQuote,
+  remindNow, duplicateDocument, convertQuote, setRepeat,
 } from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
 import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages, isQuote, reminderDays } from '@/lib/invoices';
 import { money, altMoney, num, rateLabel } from '@/lib/money';
 import { frDate, today } from '@/lib/dates';
-import { paymentMethodOptions } from '@/lib/payment';
+import { paymentMethodOptions, whatsappLink } from '@/lib/payment';
+import { Icon } from '@/components/AppShell';
 import { shiftPeriod, describePeriod } from '@/lib/period';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
 import { statusOf } from '@/lib/status';
@@ -37,6 +38,13 @@ export default async function Page({ params, searchParams }) {
   // « Dupliquer pour octobre 2026 » quand la facture porte sur un mois entier
   const nextMonth = inv.period?.mode === 'mois' ? describePeriod(shiftPeriod(inv.period, 1)) : '';
   const steps = reminderDays(company);
+  // Message WhatsApp prêt à envoyer, avec le lien de la facture ou du devis
+  const wa = inv.number && !['annulee', 'refusee', 'convertie'].includes(inv.status) && whatsappLink(inv.client_phone, quote
+    ? `Bonjour ${inv.client_name}, voici notre devis ${inv.number} de ${money(inv.amount_due, cur)}, valable jusqu'au ${frDate(inv.due_date)}. Vous pouvez le consulter et l'accepter ici : ${payUrl(inv)}`
+    : inv.status === 'payee'
+      ? `Bonjour ${inv.client_name}, merci pour votre paiement de la facture ${inv.number}. Vous pouvez télécharger la facture payée ici : ${payUrl(inv)}`
+      : `Bonjour ${inv.client_name}, voici la facture ${inv.number} de ${money(inv.amount_due, cur)}, à régler avant le ${frDate(inv.due_date)}. Vous pouvez la consulter et signaler votre paiement ici : ${payUrl(inv)}`,
+  company.country);
 
   return (
     <>
@@ -48,6 +56,7 @@ export default async function Page({ params, searchParams }) {
         </div>
         <div className="actions">
           <a className="button secondary" href={`/factures/${inv.id}/pdf`} target="_blank" rel="noopener">PDF</a>
+          {wa && <a className="button whatsapp" href={wa} target="_blank" rel="noopener"><Icon name="whatsapp" size={18} />WhatsApp</a>}
           {inv.credit_number && <a className="button secondary" href={`/factures/${inv.id}/avoir`} target="_blank" rel="noopener">Avoir {inv.credit_number}</a>}
           {editable && <Link className="button secondary" href={`/factures/${inv.id}/modifier`}>Modifier</Link>}
           <form action={duplicateDocument} className="inline">{hidden}
@@ -116,9 +125,10 @@ export default async function Page({ params, searchParams }) {
             {inv.due_date && <Fact label={quote ? "Valable jusqu'au" : 'Échéance'}>{frDate(inv.due_date)}</Fact>}
             {inv.sent_at && <Fact label={quote ? 'Envoyé au client' : 'Envoyée au client'}>{frDate(inv.sent_at)}</Fact>}
             {inv.reminders_sent > 0 && <Fact label="Relances envoyées">{inv.reminders_sent}, la dernière le {frDate(inv.last_reminder_at)}</Fact>}
-            {inv.accepted_at && <Fact label="Accepté par le client">{frDate(inv.accepted_at)}</Fact>}
+            {inv.accepted_at && <Fact label="Accepté par le client">{frDate(inv.accepted_at)}{inv.accepted_by && <>, signé « {inv.accepted_by} »</>}</Fact>}
             {inv.refused_at && <Fact label="Refusé par le client">{frDate(inv.refused_at)}</Fact>}
             {inv.converted_invoice_id && <Fact label="Facture créée"><Link href={`/factures/${inv.converted_invoice_id}`}>Voir la facture</Link></Fact>}
+            {inv.repeat_source_id && <Fact label="Facture récurrente"><Link href={`/factures/${inv.repeat_source_id}`}>Voir le modèle</Link></Fact>}
             {inv.source_quote_id && <Fact label="Issue du devis"><Link href={`/factures/${inv.source_quote_id}`}>Voir le devis</Link></Fact>}
             {inv.paid_declared_at && (
               <Fact label="Paiement signalé par le client">
@@ -159,6 +169,27 @@ export default async function Page({ params, searchParams }) {
             </div>
           )}
 
+          {!quote && inv.number && inv.status !== 'annulee' && (
+            <div className="status-box" id="recurrence">
+              <h3>{inv.repeat_active ? 'Facture récurrente' : 'Répéter chaque mois'}</h3>
+              {inv.repeat_active ? (
+                <>
+                  <p className="help">Une copie part automatiquement le {inv.repeat_day} de chaque mois{inv.period ? ', avec la période du mois suivant' : ''}. Prochain envoi : <strong>{frDate(inv.repeat_next)}</strong>.{inv.repeat_count > 0 ? ` ${inv.repeat_count} déjà envoyée${inv.repeat_count > 1 ? 's' : ''}.` : ''}</p>
+                  <form action={setRepeat}>{hidden}<input type="hidden" name="active" value="0" /><button className="secondary">Arrêter la récurrence</button></form>
+                </>
+              ) : (
+                <>
+                  <p className="help">Pour un client facturé chaque mois : FactPay recopie cette facture{inv.period ? ' (période décalée au mois suivant)' : ''} et l'envoie toute seule.</p>
+                  <form action={setRepeat} className="repeat-form">{hidden}<input type="hidden" name="active" value="1" />
+                    <label>Jour d'envoi<select name="day" defaultValue="28">
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>le {d}</option>)}
+                    </select></label>
+                    <button className="secondary">Activer</button>
+                  </form>
+                </>
+              )}
+            </div>
+          )}
           {!quote && ['emise', 'envoyee', 'signalee'].includes(inv.status) && (
             <div className="status-box" id="statut">
               <h3>Marquer comme payée</h3>

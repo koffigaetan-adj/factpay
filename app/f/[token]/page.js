@@ -35,7 +35,7 @@ export default async function Page({ params, searchParams }) {
   if (quote) {
     // Devis : le client l'accepte ou le refuse
     if (['acceptee', 'convertie'].includes(inv.status)) {
-      action = <div className="done paid"><h2>Devis accepté</h2><p>Vous avez accepté ce devis le {frDate(inv.accepted_at)}. {co.name} a été prévenu et vous enverra la facture.</p></div>;
+      action = <div className="done paid"><h2>Devis accepté</h2><p>Vous avez accepté ce devis le {frDate(inv.accepted_at)}{inv.accepted_by ? `, signé « ${inv.accepted_by} »` : ''}. {co.name} a été prévenu et vous enverra la facture.</p></div>;
     } else if (inv.status === 'refusee') {
       action = <div className="done void"><h2>Devis refusé</h2><p>Vous avez refusé ce devis le {frDate(inv.refused_at)}. {co.name} a été prévenu.</p></div>;
     } else {
@@ -43,10 +43,13 @@ export default async function Page({ params, searchParams }) {
         <form action={answerQuote} className="stack pay">
           <input type="hidden" name="token" value={inv.token} />
           <h2>Votre réponse</h2>
-          <p className="hint">Ce devis est valable jusqu'au {frDate(inv.due_date)}. {co.name} sera prévenu de votre réponse.</p>
+          <p className="hint">Ce devis est valable jusqu'au {frDate(inv.due_date)}. Pour l'accepter, signez-le en tapant votre nom : {co.name} sera prévenu.</p>
+          <Flash searchParams={searchParams} />
+          <label>Nom et prénom du signataire<input name="signed_by" maxLength={120} autoComplete="name" placeholder="Ex. Afi Mensah, directrice" /></label>
+          <label className="check"><input type="checkbox" name="agree" /><span>Bon pour accord : j'accepte ce devis de {co.name} pour un montant de {money(inv.amount_due, cur)}.</span></label>
           <div className="answer">
-            <button name="answer" value="accepter">Accepter le devis</button>
-            <button name="answer" value="refuser" className="secondary">Refuser</button>
+            <button name="answer" value="accepter">Signer et accepter le devis</button>
+            <button name="answer" value="refuser" className="secondary" formNoValidate>Refuser</button>
           </div>
         </form>
       );

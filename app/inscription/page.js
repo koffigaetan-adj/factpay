@@ -24,6 +24,10 @@ export default async function Page({ searchParams }) {
           </div>
           <label>Adresse e-mail<input name="email" type="email" required autoComplete="email" /></label>
           <PasswordFields />
+          <label className="check terms">
+            <input type="checkbox" name="terms" required />
+            <span>J'accepte les <Link href="/conditions" target="_blank">conditions d'utilisation</Link> et la <Link href="/confidentialite" target="_blank">politique de confidentialité</Link>.</span>
+          </label>
           <button>Créer mon compte</button>
         </form>
       </div>

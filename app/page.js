@@ -177,13 +177,13 @@ export default async function Home({ searchParams }) {
           <h2 id="close-title">Ta prochaine facture part en une minute.</h2>
           <p>Crée ton compte, renseigne ton entreprise, ajoute ton client. C'est tout.</p>
           <Link className="button big light" href="/inscription">Créer mon compte, gratuit pour commencer</Link>
-          <p className="soon">Fiches de paie : bientôt disponibles.</p>
+          <p className="soon">Bientôt : fiches de paie et paiement en ligne (Mobile Money, carte).</p>
         </div>
       </section>
 
       <footer className="site-foot">
         <Logo height={28} />
-        <nav><Link href="/connexion">Se connecter</Link><Link href="/inscription">Créer un compte</Link></nav>
+        <nav><Link href="/conditions">Conditions</Link><Link href="/confidentialite">Confidentialité</Link><Link href="/connexion">Se connecter</Link></nav>
       </footer>
     </div>
   );

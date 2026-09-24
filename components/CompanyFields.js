@@ -121,6 +121,11 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
             <MobileAccounts key={country} country={country} initial={parseMobiles(c)} legacy={c.mobile_money} />
           </fieldset>
 
+          <fieldset className="soon-box">
+            <legend>Paiement en ligne <span className="soon-badge">Prochainement</span></legend>
+            <p className="help" style={{ margin: 0 }}>Bientôt, ton client pourra payer par Mobile Money ou par carte directement depuis la facture, et elle passera « payée » toute seule, sans justificatif à vérifier.</p>
+          </fieldset>
+
           <fieldset>
             <legend>Alias SPI (BCEAO)</legend>
             <label>Alias <span className="help">facultatif. Virements instantanés entre banques et portefeuilles de l'UEMOA ; ce n'est pas un compte Mobile Money.</span>

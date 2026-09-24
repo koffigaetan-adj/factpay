@@ -20,6 +20,15 @@ Logiciel de facturation en ligne, multi-comptes. Chaque personne crée son compt
 - **Dupliquer** : copie d'une facture en brouillon, avec la période décalée au mois suivant.
 - **Export** : fichier CSV (Excel) des factures de l'année pour le comptable.
 - **Double authentification** : code par e-mail ou application (Google Authenticator, Authy…), avec 8 codes de secours.
+- **Factures récurrentes** : une facture sert de modèle et repart seule chaque mois (période décalée).
+- **Devis signés en ligne** : le client tape son nom et coche « Bon pour accord ».
+- **WhatsApp** : bouton qui ouvre WhatsApp avec le message et le lien de la facture déjà prêts.
+- **Rapports** : récapitulatif de l'année (HT, TVA, retenues, encaissé) par client et par mois, exportable.
+- **Accès comptable** : lien secret en lecture seule (factures, avoirs, récapitulatif, exports), révocable.
+- **Documents** : contrats, bons de commande, attestations, rattachés ou non à un client, avec échéances.
+- **Application installable** sur téléphone (manifeste et icônes).
+- **Conditions d'utilisation** et **confidentialité** : pages à compléter (passages entre crochets) et à faire relire.
+- **Prochainement** : paiement en ligne (Mobile Money, carte) et fiches de paie.
 - **Mode sombre** : suit le réglage de l'appareil.
 - **Fiches de paie** : prochaine étape.
 
@@ -79,6 +88,17 @@ Gmail limite à environ 500 e-mails par jour. Pour passer plus tard à un autre 
 
 ### 7. Déployer
 **Deployments → Redeploy**. Ouvre ensuite l'adresse du projet et crée ton compte.
+
+### Envoyer les e-mails depuis ton nom de domaine
+Gmail convient pour démarrer (environ 500 e-mails par jour), mais un expéditeur sur ton propre domaine arrive plus souvent en boîte de réception et fait plus professionnel. Le code n'a pas à changer : FactPay envoie par SMTP.
+1. Crée un compte chez un service d'envoi, par exemple **Brevo** (gratuit jusqu'à 300 e-mails par jour) ou **Resend**.
+2. Ajoute ton domaine et les enregistrements DNS qu'il indique (SPF, DKIM) chez ton registraire.
+3. Dans Vercel, remplace les variables : `SMTP_HOST` et `SMTP_PORT` (fournis par le service), `SMTP_USER` et `SMTP_PASS` (identifiants SMTP du service), `MAIL_FROM` = `FactPay <factures@ton-domaine.com>`.
+4. Redéploie.
+
+### Sauvegardes et incidents
+- **Base de données** : Neon garde un historique qui permet de revenir à un instant passé (« restore » ou création d'une branche à une date donnée, depuis la console Neon ; la durée dépend de l'offre). Pense aussi à exporter tes factures chaque année (Factures → Exporter).
+- **Erreurs en ligne** : elles apparaissent dans Vercel → Logs. Les pages d'erreur affichent une référence à rapprocher des journaux. Pour être alerté automatiquement, un service comme Sentry peut être ajouté plus tard.
 
 ### Nom de domaine
 Dans **Settings → Domains**, ajoute ton domaine (par exemple `factures.ton-domaine.com`), puis mets à jour `APP_URL`.
