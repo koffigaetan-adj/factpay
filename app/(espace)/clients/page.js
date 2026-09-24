@@ -6,6 +6,7 @@ import { q } from '@/lib/db';
 import { money } from '@/lib/money';
 import ClientFields from '@/components/ClientFields';
 import Modal from '@/components/Modal';
+import { pubId } from '@/lib/ids';
 
 export const metadata = { title: 'Clients' };
 
@@ -38,10 +39,10 @@ export default async function Page({ searchParams }) {
                 <tbody>
                   {clients.map((c) => (
                     <tr key={c.id}>
-                      <td><Link className="row-link" href={`/clients/${c.id}`}>{c.name}</Link><span className="sub">{c.email}</span></td>
+                      <td><Link className="row-link" href={`/clients/${pubId('client', c.id)}`}>{c.name}</Link><span className="sub">{c.email}</span></td>
                       <td className="n">{c.invoice_count}</td>
                       <td className="n">{money(c.open_total, company.currency)}</td>
-                      <td className="n"><Link className="button secondary small" href={`/clients/${c.id}#modifier`}>Modifier</Link></td>
+                      <td className="n"><Link className="button secondary small" href={`/clients/${pubId('client', c.id)}#modifier`}>Modifier</Link></td>
                     </tr>
                   ))}
                 </tbody>

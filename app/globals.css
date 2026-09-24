@@ -131,9 +131,13 @@ body {
   color: var(--ink);
   font: 400 15px/1.55 var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
+  /* Filet de sécurité sur mobile : un long numéro de facture ou un montant (le format français les
+     écrit avec une espace insécable, comme « 619 500 F CFA ») ne pousse plus le contenu hors de
+     l'écran. Le navigateur ne coupe un mot que si le laisser entier ferait déborder. */
+  overflow-wrap: anywhere;
 }
 
-main { margin: 0 auto; padding: 32px 16px 80px; max-width: 1120px; }
+main { margin: 0 auto; padding: 32px 16px 80px; max-width: 1120px; width: 100%; }
 main.narrow { max-width: 760px; }
 
 h1 { font-size: 28px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
@@ -293,8 +297,15 @@ section, .card { background: var(--paper); border: 1px solid var(--line); border
 .flash.err { border-left-color: var(--late); }
 
 /* Tableaux */
-.scroll { overflow-x: auto; }
+/* Les tableaux défilent sur le côté plutôt que de couper les mots au milieu : le filet de sécurité
+   contre le débordement de page (overflow-wrap: anywhere sur body) ne s'applique pas ici. */
+.scroll { overflow-x: auto; overflow-wrap: normal; }
 table { width: 100%; border-collapse: collapse; }
+/* position: relative : sert de cadre à un .sr caché (position: absolute) dans un intitulé de
+   colonne. Sans lui, l'élément caché se positionne par rapport à toute la page, et un tableau
+   qui défile sur le côté (.scroll) fait alors défiler la page entière avec lui — un vrai bogue,
+   très facile à reproduire, découvert en testant l'affichage sur téléphone. */
+th, td { position: relative; }
 th { text-align: left; font-weight: 500; font-size: 13px; color: var(--muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 tr:last-child td { border-bottom: 0; }
@@ -316,12 +327,17 @@ td a.row-link:hover { text-decoration: underline; }
 .status.void { color: var(--muted); text-decoration: line-through; background: color-mix(in srgb, var(--muted) 8%, transparent); }
 
 /* Formulaires : tous les champs et boutons font 42 px de haut ; l'aide se place à côté du libellé */
-.stack { display: grid; gap: 14px; }
-.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: end; }
-.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: end; }
+/* minmax(0, 1fr) : sans le 0, une seule case trop remplie (un long menu déroulant, par exemple)
+   agrandirait toute la colonne — et la page avec elle — au lieu de rester dans son cadre */
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.stack > * { min-width: 0; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: end; }
+.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: end; }
 fieldset { border: 0; padding: 0; margin: 8px 0 0; display: grid; gap: 14px; }
 legend { font-weight: 600; font-size: 16px; padding: 0; margin-bottom: 10px; }
-label { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 6px; row-gap: 6px; font-size: 14px; font-weight: 500; }
+/* minmax(0, 1fr), pas juste 1fr : sinon un <select> avec de longues options (ou un champ très
+   rempli) élargit l'étiquette — donc la page — au lieu de rester dans sa colonne */
+label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: 6px; row-gap: 6px; font-size: 14px; font-weight: 500; }
 label > :not(.help) { grid-column: 1 / -1; }
 label.check { display: flex; align-items: flex-start; gap: 10px; font-weight: 400; }
 label.check input { width: auto; margin-top: 4px; }
@@ -656,7 +672,9 @@ details.cancel form { margin-top: 12px; }
   .sheet { padding: 24px; }
   address { text-align: left; margin-left: 0; }
   .co-logo { margin-left: 0; }
-  .row, .row3 { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr), pas juste 1fr : sans ça, une option longue dans un <select> peut élargir
+     toute la colonne au-delà de l'écran (une case de grille garde sinon la largeur minimale de son contenu) */
+  .row, .row3 { grid-template-columns: minmax(0, 1fr); }
   .due strong { font-size: 30px; }
   .hide-sm { display: none; }
   .sheet h1 { font-size: 24px; }

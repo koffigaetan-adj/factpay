@@ -12,13 +12,14 @@ import { listDocuments } from '@/lib/documents';
 import { DocumentForm, DocumentList } from '@/components/Documents';
 import Modal from '@/components/Modal';
 import SubmitButton from '@/components/SubmitButton';
+import { pubId, idFrom } from '@/lib/ids';
 
 export const metadata = { title: 'Client' };
 
 export default async function Page({ params, searchParams }) {
   const { id } = await params;
   const { company } = await requireCompany();
-  const client = await one('SELECT * FROM clients WHERE id = $1 AND company_id = $2', [Number(id) || 0, company.id]);
+  const client = await one('SELECT * FROM clients WHERE id = $1 AND company_id = $2', [idFrom('client', id), company.id]);
   if (!client) notFound();
   const invoices = (await listInvoices(company.id)).filter((i) => i.client_id === client.id);
   const docs = await listDocuments(company.id, { clientId: client.id });
@@ -27,7 +28,7 @@ export default async function Page({ params, searchParams }) {
     <>
       <div className="page-head">
         <div><BackButton href="/clients">Clients</BackButton><h1>{client.name}</h1></div>
-        <div className="actions"><Link className="button" href={`/factures/nouvelle?client=${client.id}`}>Nouvelle facture</Link></div>
+        <div className="actions"><Link className="button" href={`/factures/nouvelle?client=${pubId('client', client.id)}`}>Nouvelle facture</Link></div>
       </div>
       <Flash searchParams={searchParams} />
       <div className="grid2">

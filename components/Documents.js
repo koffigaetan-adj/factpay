@@ -1,6 +1,7 @@
 import { uploadDocument, deleteDocument } from '@/app/actions';
 import { CATEGORIES, badgeOf, sizeLabel, expiryState } from '@/lib/documents';
 import { frDate } from '@/lib/dates';
+import { pubId } from '@/lib/ids';
 
 // Formulaire d'ajout. clientId : document rattaché d'office à ce client (page client).
 export function DocumentForm({ clients = [], clientId = null, defaultClient = '' }) {
@@ -48,7 +49,7 @@ export function DocumentList({ docs, showClient = true, clientId = null }) {
           <li key={d.id}>
             <span className="doc-kind" aria-hidden="true">{badgeOf(d.file_mime)}</span>
             <div className="doc-main">
-              <a href={`/documents/${d.id}/fichier`} target="_blank" rel="noopener" className="row-link">{d.title}</a>
+              <a href={`/documents/${pubId('document', d.id)}/fichier`} target="_blank" rel="noopener" className="row-link">{d.title}</a>
               <span className="sub">
                 {CATEGORIES[d.category] || 'Autre'}
                 {showClient && d.client_name && ` · ${d.client_name}`}

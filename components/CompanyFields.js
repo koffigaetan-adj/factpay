@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { CURRENCIES } from '@/lib/money';
-import { logoUrl } from '@/lib/url';
 import { COUNTRIES, countryOf, localNumber, parseMobiles } from '@/lib/payment';
 import { BANKS } from '@/lib/providers';
 import LogoSelect from '@/components/LogoSelect';
@@ -84,9 +83,9 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
           <fieldset className="card" style={{ padding: '24px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Logo</h3>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-              {logoUrl(c) && (
+              {c.logo_src && (
                 <div style={{ flex: 'none', width: '88px', height: '88px', padding: '8px', border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={logoUrl(c)} alt="Logo actuel" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  <img src={c.logo_src} alt="Logo actuel" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
               )}
               <div style={{ flex: 1, display: 'grid', gap: '12px' }}>
@@ -95,7 +94,7 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
                   <span className="help" style={{ margin: 0 }}>PNG ou JPEG (1 Mo max). Sera affiché sur tes factures.</span>
                   <input name="logo" type="file" accept="image/png,image/jpeg" style={{ marginTop: '4px' }} />
                 </label>
-                {logoUrl(c) && (
+                {c.logo_src && (
                   <label className="switch-row" style={{ margin: 0, padding: '12px' }}>
                     <span>
                       <strong style={{ color: 'var(--late)' }}>Supprimer le logo actuel</strong><br />
@@ -131,18 +130,18 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
             <input type="hidden" name="mobile_money" value={c.mobile_money || ''} />
             <MobileAccounts key={country} country={country} initial={parseMobiles(c)} legacy={c.mobile_money} />
           </fieldset>
-
-          <fieldset className="soon-box card" style={{ padding: '24px', opacity: 0.8 }}>
-            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Paiement en ligne <span className="soon-badge" style={{ fontSize: '12px', verticalAlign: 'middle', marginLeft: '8px' }}>Prochainement</span></h3>
-            <p className="help" style={{ margin: 0 }}>Bientôt, ton client pourra payer par Mobile Money ou par carte directement depuis la facture, et elle passera « payée » toute seule, sans justificatif à vérifier.</p>
-          </fieldset>
-
           <fieldset className="card" style={{ padding: '24px' }}>
             <h3 className="legend-logo" style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><img src="/brands/spi-full.png" alt="SPI BCEAO" height={26} /> Alias SPI</h3>
             <label>Alias <span className="help">facultatif. Virements instantanés entre banques et portefeuilles de l'UEMOA ; ce n'est pas un compte Mobile Money.</span>
               <input name="spi_alias" maxLength={100} defaultValue={c.spi_alias} placeholder="Ton alias SPI" />
             </label>
           </fieldset>
+          <fieldset className="soon-box card" style={{ padding: '24px', opacity: 0.8 }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Paiement en ligne <span className="soon-badge" style={{ fontSize: '12px', verticalAlign: 'middle', marginLeft: '8px' }}>Prochainement</span></h3>
+            <p className="help" style={{ margin: 0 }}>Bientôt, ton client pourra payer par Mobile Money ou par carte directement depuis la facture, et elle passera « payée » toute seule, sans justificatif à vérifier.</p>
+          </fieldset>
+
+
         </>
       )}
 

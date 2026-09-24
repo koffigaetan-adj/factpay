@@ -19,11 +19,19 @@ import * as documents from '@/lib/documents';
 import * as accountant from '@/lib/accountant';
 import { COUNTRIES, cleanMobiles } from '@/lib/payment';
 import { AUTH_APPS } from '@/lib/authenticators';
+import { pubId } from '@/lib/ids';
+import { signFlash } from '@/lib/flash';
+import { hitLimit, clientIp } from '@/lib/ratelimit';
+import { safeError } from '@/lib/safeerror';
+import { matchesType } from '@/lib/filetype';
 
-// Revient sur une page avec un message (?ok=… ou ?erreur=…)
+// Revient sur une page avec un message (?ok=… ou ?erreur=…), signé pour qu'un lien fabriqué à la
+// main (par exemple pour une arnaque à l'adresse « ?erreur=Compte suspendu, appelez… ») ne puisse
+// pas afficher un message qui n'a pas été produit par ce code.
 function back(path, message, error = false) {
   const sep = path.includes('?') ? '&' : '?';
-  redirect(`${path}${sep}${error ? 'erreur' : 'ok'}=${encodeURIComponent(message)}`);
+  const kind = error ? 'erreur' : 'ok';
+  redirect(`${path}${sep}${kind}=${encodeURIComponent(message)}&s=${signFlash(kind, message)}`);
 }
 
 const text = (fd, key, max = 300) => String(fd.get(key) ?? '').trim().slice(0, max);
@@ -46,6 +54,10 @@ export async function signup(fd) {
   const lastName = text(fd, 'last_name', 60);
   const email = text(fd, 'email', 200).toLowerCase();
   const password = String(fd.get('password') || '');
+  // Limite les créations de compte en rafale depuis un même appareil (chacune envoie un e-mail)
+  if (await hitLimit('signup-ip', await clientIp(), 6, 60)) {
+    back('/inscription', 'Trop de comptes créés récemment depuis cette connexion. Réessaie plus tard.', true);
+  }
   if (!firstName || !lastName) back('/inscription', 'Indique ton prénom et ton nom.', true);
   if (fd.get('terms') !== 'on') back('/inscription', "Accepte les conditions d'utilisation et la politique de confidentialité pour créer ton compte.", true);
   if (!emailOk(email)) back('/inscription', 'Indique une adresse e-mail valide.', true);
@@ -76,7 +88,7 @@ export async function resendVerification() {
   try {
     await sendVerification(user);
   } catch (err) {
-    back('/confirmer-email', `L'envoi a échoué : ${err.message}`, true);
+    back('/confirmer-email', `L'envoi a échoué : ${safeError(err)}`, true);
   }
   back('/confirmer-email', `Nouveau lien envoyé à ${user.email}.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
 }
@@ -84,10 +96,19 @@ export async function resendVerification() {
 export async function login(fd) {
   const email = text(fd, 'email', 200).toLowerCase();
   const password = String(fd.get('password') || '');
-  if (await auth.tooManyFailures(email)) back('/connexion', 'Trop d\'essais. Réessaie dans 15 minutes.', true);
+  // Limite globale par appareil : freine les essais massifs de mots de passe sur beaucoup de comptes
+  if (await hitLimit('login-ip', await clientIp(), 30, 15)) {
+    back('/connexion', 'Trop de tentatives depuis cette connexion. Réessaie dans 15 minutes.', true);
+  }
+  // Le mot de passe est vérifié avant de regarder les essais précédents : quelqu'un qui connaît ton
+  // adresse ne peut pas te bloquer en enchaînant volontairement de mauvais essais à ta place. Seuls
+  // les MAUVAIS essais comptent pour le blocage, jamais une connexion réussie.
+  const locked = await auth.tooManyFailures(email);
   const user = await one('SELECT id, email, name, first_name, password_hash, twofa_method FROM users WHERE email = $1', [email]);
-  if (!user || !(await auth.checkPassword(password, user.password_hash))) {
+  const passwordOk = user && await auth.checkPassword(password, user.password_hash);
+  if (!passwordOk) {
     await auth.recordFailure(email);
+    if (locked) back('/connexion', 'Trop d\'essais pour cette adresse. Réessaie dans 15 minutes.', true);
     back('/connexion', 'Adresse e-mail ou mot de passe incorrect.', true);
   }
   await auth.clearFailures(email);
@@ -110,7 +131,7 @@ async function openSessionOrAsk2fa(user, then = '/tableau-de-bord') {
     try {
       await sendMail({ to: user.email, ...(await withImages(loginCodeEmail(user.first_name || user.name, emailCode))) });
     } catch (err) {
-      back('/connexion/verification', `Le code n'a pas pu partir : ${err.message}. Clique sur « Renvoyer le code ».`, true);
+      back('/connexion/verification', `Le code n'a pas pu partir : ${safeError(err)}. Clique sur « Renvoyer le code ».`, true);
     }
   }
   redirect('/connexion/verification');
@@ -140,13 +161,15 @@ export async function resendLoginCode() {
   try {
     await sendMail({ to: ch.email, ...(await withImages(loginCodeEmail(ch.first_name || ch.name, code))) });
   } catch (err) {
-    back('/connexion/verification', `Le code n'a pas pu partir : ${err.message}`, true);
+    back('/connexion/verification', `Le code n'a pas pu partir : ${safeError(err)}`, true);
   }
   back('/connexion/verification', `Nouveau code envoyé à ${ch.email}.${mailTestMode() ? ' (mode test : code affiché dans la console)' : ''}`);
 }
 
-// Vérifie le mot de passe du compte connecté avant un changement de sécurité
+// Vérifie le mot de passe du compte connecté avant un changement de sécurité (limité en essais :
+// une session volée ne permet pas de deviner le mot de passe sans limite)
 async function requirePassword(fd, user, tab = '/parametres?onglet=securite') {
+  if (await hitLimit('reauth', String(user.id), 8, 15)) back(tab, 'Trop de tentatives. Réessaie dans 15 minutes.', true);
   const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
   if (!(await auth.checkPassword(String(fd.get('password') || ''), row.password_hash))) back(tab, 'Mot de passe incorrect.', true);
 }
@@ -224,13 +247,20 @@ export async function logout() {
 
 export async function requestPasswordReset(fd) {
   const email = text(fd, 'email', 200).toLowerCase();
+  const genericOk = () => back('/mot-de-passe-oublie', `Si un compte existe pour cette adresse, un lien vient d'y être envoyé.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
+  // Limites d'envoi (par appareil, puis par adresse) : sans réponse différente, pour ne pas révéler
+  // qu'un compte existe. Au-delà, on répond comme un succès mais aucun e-mail ne repart.
+  if (await hitLimit('reset-ip', await clientIp(), 8, 60)) genericOk();
+  if (email && await hitLimit('reset-email', email, 3, 60)) genericOk();
   const user = email && await one('SELECT id, name, first_name FROM users WHERE email = $1', [email]);
   if (user) {
+    // Un ancien lien encore valable ne doit plus marcher une fois qu'un nouveau est demandé
+    await q('DELETE FROM password_resets WHERE user_id = $1 AND NOT used', [user.id]);
     const token = await auth.createPasswordReset(user.id);
     await sendMail({ to: email, ...(await withImages(resetPasswordEmail(user.first_name || user.name, `${appUrl()}/reinitialiser/${token}`))) });
   }
   // Même réponse que le compte existe ou non : on ne révèle pas qui est inscrit.
-  back('/mot-de-passe-oublie', `Si un compte existe pour cette adresse, un lien vient d'y être envoyé.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
+  genericOk();
 }
 
 export async function resetPassword(fd) {
@@ -244,6 +274,8 @@ export async function resetPassword(fd) {
   await q('UPDATE users SET password_hash = $1, email_verified_at = coalesce(email_verified_at, now()) WHERE id = $2',
     [await auth.hashPassword(password), reset.user_id]);
   await auth.markResetUsed(token);
+  // Tout autre lien de réinitialisation encore valable devient inutile
+  await q('DELETE FROM password_resets WHERE user_id = $1 AND NOT used', [reset.user_id]);
   await auth.endAllSessions(reset.user_id);
   // Un mot de passe oublié ne dispense pas du second code
   const user = await one('SELECT id, email, name, first_name, twofa_method FROM users WHERE id = $1', [reset.user_id]);
@@ -254,17 +286,21 @@ export async function resetPassword(fd) {
 
 export async function changePassword(fd) {
   const user = await auth.requireUser();
+  const tab = '/parametres?onglet=compte';
+  if (await hitLimit('reauth', String(user.id), 8, 15)) back(tab, 'Trop de tentatives. Réessaie dans 15 minutes.', true);
   const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
   if (!(await auth.checkPassword(String(fd.get('current') || ''), row.password_hash))) {
-    back('/parametres?onglet=compte', 'Le mot de passe actuel est incorrect.', true);
+    back(tab, 'Le mot de passe actuel est incorrect.', true);
   }
   const password = String(fd.get('password') || '');
   const weak = passwordProblem(password, String(fd.get('confirm') || ''));
-  if (weak) back('/parametres?onglet=compte', weak, true);
+  if (weak) back(tab, weak, true);
   await q('UPDATE users SET password_hash = $1 WHERE id = $2', [await auth.hashPassword(password), user.id]);
+  // Un lien de réinitialisation demandé avant ce changement ne doit plus marcher
+  await q('DELETE FROM password_resets WHERE user_id = $1 AND NOT used', [user.id]);
   await auth.endAllSessions(user.id);
   await auth.startSession(user.id);
-  back('/parametres?onglet=compte', 'Mot de passe changé. Tes autres appareils ont été déconnectés.');
+  back(tab, 'Mot de passe changé. Tes autres appareils ont été déconnectés.');
 }
 
 // ---------- Entreprise ----------
@@ -322,6 +358,7 @@ async function saveLogo(fd, userId, from) {
   if (!file || typeof file === 'string' || !file.size) return;
   if (!LOGO_TYPES.includes(file.type)) back(from, 'Le logo doit être une image PNG ou JPEG.', true);
   if (file.size > 1024 * 1024) back(from, 'Le logo dépasse 1 Mo. Réduis sa taille et réessaie.', true);
+  if (!(await matchesType(file))) back(from, "Ce fichier n'est pas une véritable image PNG ou JPEG.", true);
   const key = await saveFile(file, 'logos');
   await q('UPDATE companies SET logo_key = $1, logo_mime = $2, logo_updated_at = now() WHERE owner_id = $3', [key, file.type, userId]);
 }
@@ -363,6 +400,7 @@ export async function requestEmailChange(fd) {
   const tab = '/parametres?onglet=compte';
   if (!emailOk(email)) back(tab, 'Indique une adresse e-mail valide.', true);
   if (email === user.email) back(tab, "C'est déjà ton adresse.", true);
+  if (await hitLimit('reauth', String(user.id), 8, 15)) back(tab, 'Trop de tentatives. Réessaie dans 15 minutes.', true);
   const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
   if (!(await auth.checkPassword(String(fd.get('password') || ''), row.password_hash))) back(tab, 'Mot de passe incorrect.', true);
   if (await one('SELECT 1 FROM users WHERE email = $1', [email])) back(tab, 'Cette adresse est déjà utilisée par un autre compte.', true);
@@ -370,16 +408,34 @@ export async function requestEmailChange(fd) {
   try {
     await sendMail({ to: email, ...(await withImages(changeEmailEmail(user.first_name || user.name, `${appUrl()}/confirmer/${token}`))) });
   } catch (err) {
-    back(tab, `Le lien n'a pas pu partir : ${err.message}`, true);
+    back(tab, `Le lien n'a pas pu partir : ${safeError(err)}`, true);
   }
   back(tab, `Lien de confirmation envoyé à ${email}. Ton adresse changera quand tu l'auras ouvert.${mailTestMode() ? ' (mode test : lien affiché dans la console)' : ''}`);
 }
 
-// Suppression du compte et de toutes ses données (entreprise, clients, factures)
+// Suppression du compte et de toutes ses données (entreprise, clients, factures, fichiers stockés)
+// Le mot de passe et le mot « SUPPRIMER » tapé à la main protègent contre un clic accidentel ou un
+// appareil resté connecté ; l'action est définitive et irréversible.
 export async function deleteAccount(fd) {
   const user = await auth.requireUser();
+  const tab = '/parametres?onglet=compte';
+  if (await hitLimit('reauth', String(user.id), 8, 15)) back(tab, 'Trop de tentatives. Réessaie dans 15 minutes.', true);
+  const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+  if (!(await auth.checkPassword(String(fd.get('password') || ''), row.password_hash))) back(tab, 'Mot de passe incorrect.', true);
+  if (text(fd, 'confirm', 20).toUpperCase() !== 'SUPPRIMER') back(tab, 'Tape SUPPRIMER en majuscules pour confirmer.', true);
+
+  // Les fichiers (photo, logo, documents, justificatifs) sont gardés en dehors de la base : il faut
+  // les lister avant de supprimer le compte, puis les effacer un par un après.
+  const company = await one('SELECT id, logo_key FROM companies WHERE owner_id = $1', [user.id]);
+  const [docs, invs] = company ? await Promise.all([
+    q('SELECT file_key FROM documents WHERE company_id = $1', [company.id]),
+    q('SELECT proof_key FROM invoices WHERE company_id = $1 AND proof_key IS NOT NULL', [company.id]),
+  ]) : [[], []];
+  const keys = [user.avatar_key, company?.logo_key, ...docs.map((d) => d.file_key), ...invs.map((i) => i.proof_key)].filter(Boolean);
+
   await auth.endSession();
   await q('DELETE FROM users WHERE id = $1', [user.id]);
+  await Promise.all(keys.map((k) => deleteFile(k)));
   redirect('/?compte=supprime');
 }
 
@@ -408,6 +464,7 @@ export async function saveAvatar(fd) {
   if (!file || typeof file === 'string' || !file.size) back(tab, 'Choisis une photo.', true);
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) back(tab, 'La photo doit être une image PNG, JPEG ou WebP.', true);
   if (file.size > 1024 * 1024) back(tab, 'La photo dépasse 1 Mo. Réduis sa taille et réessaie.', true);
+  if (!(await matchesType(file))) back(tab, "Ce fichier n'est pas une véritable image PNG, JPEG ou WebP.", true);
   const key = await saveFile(file, 'avatars');
   await q('UPDATE users SET avatar_key = $1, avatar_mime = $2, avatar_updated_at = now() WHERE id = $3', [key, file.type, user.id]);
   if (old?.avatar_key) await deleteFile(old.avatar_key);
@@ -446,17 +503,17 @@ export async function updateClient(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
   const c = clientFields(fd);
-  if (!c.name || !emailOk(c.email)) back(`/clients/${id}`, 'Indique le nom du client et une adresse e-mail valide.', true);
+  if (!c.name || !emailOk(c.email)) back(`/clients/${pubId('client', id)}`, 'Indique le nom du client et une adresse e-mail valide.', true);
   await q('UPDATE clients SET name = $1, email = $2, phone = $3, address = $4 WHERE id = $5 AND company_id = $6',
     [c.name, c.email, c.phone, c.address, id, company.id]);
-  back(`/clients/${id}`, 'Client mis à jour.');
+  back(`/clients/${pubId('client', id)}`, 'Client mis à jour.');
 }
 
 export async function deleteClient(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
-  const used = await one('SELECT 1 FROM invoices WHERE client_id = $1 LIMIT 1', [id]);
-  if (used) back(`/clients/${id}`, 'Ce client a des factures : il ne peut pas être supprimé.', true);
+  const used = await one('SELECT 1 FROM invoices WHERE client_id = $1 AND company_id = $2 LIMIT 1', [id, company.id]);
+  if (used) back(`/clients/${pubId('client', id)}`, 'Ce client a des factures : il ne peut pas être supprimé.', true);
   await q('DELETE FROM clients WHERE id = $1 AND company_id = $2', [id, company.id]);
   back('/clients', 'Client supprimé.');
 }
@@ -468,7 +525,7 @@ export async function saveInvoice(fd) {
   const id = Number(fd.get('id')) || null;
   const docType = fd.get('doc_type') === 'devis' ? 'devis' : 'facture';
   const word = docType === 'devis' ? 'Devis' : 'Facture';
-  const formPath = id ? `/factures/${id}/modifier` : docType === 'devis' ? '/devis/nouveau' : '/factures/nouvelle';
+  const formPath = id ? `/factures/${pubId('facture', id)}/modifier` : docType === 'devis' ? '/devis/nouveau' : '/factures/nouvelle';
   const intent = docType === 'devis' && fd.get('intent') === 'programmer' ? 'brouillon' : String(fd.get('intent'));
   let lines = [];
   try { lines = invoices.cleanLines(JSON.parse(String(fd.get('lines') || '[]'))); } catch { /* lignes invalides */ }
@@ -509,11 +566,11 @@ export async function saveInvoice(fd) {
   if (intent === 'envoyer') {
     const r = await invoices.sendInvoice(company, invoiceId);
     revalidatePath('/', 'layout');
-    if (!r.ok) back(`/factures/${invoiceId}`, `${word} ${r.invoice.number} émis${docType === 'facture' ? 'e' : ''}, mais l'envoi a échoué : ${r.error}`, true);
-    back(`/factures/${invoiceId}`, `${word} ${r.invoice.number} envoyé${docType === 'facture' ? 'e' : ''} à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
+    if (!r.ok) back(`/factures/${pubId('facture', invoiceId)}`, `${word} ${r.invoice.number} émis${docType === 'facture' ? 'e' : ''}, mais l'envoi a échoué : ${r.error}`, true);
+    back(`/factures/${pubId('facture', invoiceId)}`, `${word} ${r.invoice.number} envoyé${docType === 'facture' ? 'e' : ''} à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
   }
   revalidatePath('/', 'layout');
-  back(`/factures/${invoiceId}`, intent === 'programmer' ? 'Envoi programmé.' : 'Brouillon enregistré.');
+  back(`/factures/${pubId('facture', invoiceId)}`, intent === 'programmer' ? 'Envoi programmé.' : 'Brouillon enregistré.');
 }
 
 export async function sendInvoiceNow(fd) {
@@ -521,11 +578,11 @@ export async function sendInvoiceNow(fd) {
   const id = Number(fd.get('id'));
   const exists = await one('SELECT id, status FROM invoices WHERE id = $1 AND company_id = $2', [id, company.id]);
   if (!exists) back('/factures', 'Document introuvable.', true);
-  if (['payee', 'annulee', 'acceptee', 'refusee', 'convertie'].includes(exists.status)) back(`/factures/${id}`, 'Ce document ne peut plus être envoyé.', true);
+  if (['payee', 'annulee', 'acceptee', 'refusee', 'convertie'].includes(exists.status)) back(`/factures/${pubId('facture', id)}`, 'Ce document ne peut plus être envoyé.', true);
   const r = await invoices.sendInvoice(company, id);
   revalidatePath('/', 'layout');
-  if (!r.ok) back(`/factures/${id}`, `L'envoi a échoué : ${r.error}`, true);
-  back(`/factures/${id}`, `${r.invoice.number} envoyé à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
+  if (!r.ok) back(`/factures/${pubId('facture', id)}`, `L'envoi a échoué : ${r.error}`, true);
+  back(`/factures/${pubId('facture', id)}`, `${r.invoice.number} envoyé à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
 
 // Relance à la main d'une facture en attente
@@ -533,9 +590,9 @@ export async function remindNow(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
   const r = await invoices.sendReminder(company, id);
-  revalidatePath(`/factures/${id}`);
-  if (!r.ok) back(`/factures/${id}`, `La relance n'est pas partie : ${r.error}`, true);
-  back(`/factures/${id}`, `Relance envoyée à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
+  revalidatePath(`/factures/${pubId('facture', id)}`);
+  if (!r.ok) back(`/factures/${pubId('facture', id)}`, `La relance n'est pas partie : ${r.error}`, true);
+  back(`/factures/${pubId('facture', id)}`, `Relance envoyée à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
 
 // Copie une facture ou un devis en nouveau brouillon (la période passe au mois suivant)
@@ -544,7 +601,7 @@ export async function duplicateDocument(fd) {
   const newId = await invoices.duplicate(company, Number(fd.get('id')));
   if (!newId) back('/factures', 'Document introuvable.', true);
   revalidatePath('/', 'layout');
-  back(`/factures/${newId}/modifier`, 'Copie créée en brouillon. Vérifie-la, puis envoie-la.');
+  back(`/factures/${pubId('facture', newId)}/modifier`, 'Copie créée en brouillon. Vérifie-la, puis envoie-la.');
 }
 
 // Devis accepté (ou non) → brouillon de facture
@@ -552,9 +609,9 @@ export async function convertQuote(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
   const newId = await invoices.convertQuote(company, id);
-  if (!newId) back(`/factures/${id}`, 'Ce devis ne peut pas être transformé en facture.', true);
+  if (!newId) back(`/factures/${pubId('facture', id)}`, 'Ce devis ne peut pas être transformé en facture.', true);
   revalidatePath('/', 'layout');
-  back(`/factures/${newId}/modifier`, 'Facture créée à partir du devis. Vérifie-la, puis envoie-la.');
+  back(`/factures/${pubId('facture', newId)}/modifier`, 'Facture créée à partir du devis. Vérifie-la, puis envoie-la.');
 }
 
 export async function confirmInvoicePayment(fd) {
@@ -568,10 +625,10 @@ export async function confirmInvoicePayment(fd) {
     notify,
   });
   revalidatePath('/', 'layout');
-  if (!r.confirmed) back(`/factures/${id}`, 'Cette facture ne peut pas être marquée payée.', true);
-  if (r.skipped) back(`/factures/${id}`, "Facture marquée payée. Le client n'a pas été prévenu.");
-  if (!r.sent) back(`/factures/${id}`, `Facture marquée payée, mais la facture payée n'est pas partie : ${r.error}. Clique sur « Renvoyer la facture payée ».`, true);
-  back(`/factures/${id}`, `Facture marquée payée. La facture payée a été envoyée à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
+  if (!r.confirmed) back(`/factures/${pubId('facture', id)}`, 'Cette facture ne peut pas être marquée payée.', true);
+  if (r.skipped) back(`/factures/${pubId('facture', id)}`, "Facture marquée payée. Le client n'a pas été prévenu.");
+  if (!r.sent) back(`/factures/${pubId('facture', id)}`, `Facture marquée payée, mais la facture payée n'est pas partie : ${r.error}. Clique sur « Renvoyer la facture payée ».`, true);
+  back(`/factures/${pubId('facture', id)}`, `Facture marquée payée. La facture payée a été envoyée à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
 
 export async function reopenPayment(fd) {
@@ -579,19 +636,19 @@ export async function reopenPayment(fd) {
   const id = Number(fd.get('id'));
   const row = await invoices.reopenInvoice(company, id);
   revalidatePath('/', 'layout');
-  if (!row) back(`/factures/${id}`, "Cette facture n'est pas marquée payée.", true);
-  back(`/factures/${id}`, row.status === 'signalee' ? 'Facture remise en « paiement signalé, à vérifier ».' : 'Facture remise en attente de paiement.');
+  if (!row) back(`/factures/${pubId('facture', id)}`, "Cette facture n'est pas marquée payée.", true);
+  back(`/factures/${pubId('facture', id)}`, row.status === 'signalee' ? 'Facture remise en « paiement signalé, à vérifier ».' : 'Facture remise en attente de paiement.');
 }
 
 export async function resendReceipt(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
   const paid = await one(`SELECT id FROM invoices WHERE id = $1 AND company_id = $2 AND status = 'payee'`, [id, company.id]);
-  if (!paid) back(`/factures/${id}`, "Cette facture n'est pas encore payée.", true);
+  if (!paid) back(`/factures/${pubId('facture', id)}`, "Cette facture n'est pas encore payée.", true);
   const r = await invoices.sendReceipt(company, id);
-  revalidatePath(`/factures/${id}`);
-  if (!r.sent) back(`/factures/${id}`, `Le reçu n'est pas parti : ${r.error}`, true);
-  back(`/factures/${id}`, `Facture payée renvoyée à ${r.invoice.client_email}.`);
+  revalidatePath(`/factures/${pubId('facture', id)}`);
+  if (!r.sent) back(`/factures/${pubId('facture', id)}`, `Le reçu n'est pas parti : ${r.error}`, true);
+  back(`/factures/${pubId('facture', id)}`, `Facture payée renvoyée à ${r.invoice.client_email}.`);
 }
 
 export async function cancelInvoice(fd) {
@@ -599,9 +656,9 @@ export async function cancelInvoice(fd) {
   const id = Number(fd.get('id'));
   const r = await invoices.cancelInvoice(company, id, text(fd, 'reason', 500));
   revalidatePath('/', 'layout');
-  if (!r.cancelled) back(`/factures/${id}`, "Cette facture ne peut plus être annulée : le client a déjà signalé ou réglé son paiement.", true);
-  if (!r.sent) back(`/factures/${id}`, `Facture annulée, mais le client n'a pas pu être prévenu : ${r.error}`, true);
-  back(`/factures/${id}`, `Facture annulée. ${r.invoice.client_email} a été prévenu.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
+  if (!r.cancelled) back(`/factures/${pubId('facture', id)}`, "Cette facture ne peut plus être annulée : le client a déjà signalé ou réglé son paiement.", true);
+  if (!r.sent) back(`/factures/${pubId('facture', id)}`, `Facture annulée, mais le client n'a pas pu être prévenu : ${r.error}`, true);
+  back(`/factures/${pubId('facture', id)}`, `Facture annulée. ${r.invoice.client_email} a été prévenu.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
 
 export async function deleteInvoice(fd) {
@@ -629,6 +686,7 @@ export async function declarePayment(fd) {
   if (!file || typeof file === 'string' || !file.size) back(page, 'Joignez une image ou un PDF du paiement.', true);
   if (!ALLOWED.includes(file.type)) back(page, 'Le justificatif doit être une image ou un PDF.', true);
   if (file.size > MAX_BYTES) back(page, 'Le fichier dépasse 4 Mo.', true);
+  if (!(await matchesType(file))) back(page, "Ce fichier n'est pas une véritable image ou un PDF valide.", true);
 
   const proofKey = await saveFile(file);
   await invoices.declarePayment(token, { reference, proofKey, proofName: file.name.slice(0, 200), proofMime: file.type });
@@ -640,7 +698,10 @@ export async function declarePayment(fd) {
 export async function contactCompany(fd) {
   const token = text(fd, 'token', 100);
   const page = `/f/${token}`;
-  const reply = (message, error = false) => redirect(`${page}?${error ? 'contact_erreur' : 'contact'}=${encodeURIComponent(message)}#contact`);
+  const reply = (message, error = false) => {
+    const kind = error ? 'contact_erreur' : 'contact';
+    redirect(`${page}?${kind}=${encodeURIComponent(message)}&s=${signFlash(kind, message)}#contact`);
+  };
   const body = text(fd, 'message', 2000);
   if (body.length < 3) reply('Écrivez votre message.', true);
   const r = await invoices.sendClientMessage(token, body);
@@ -655,7 +716,7 @@ export async function answerQuote(fd) {
   const signedBy = text(fd, 'signed_by', 120);
   // Accepter, c'est signer : nom complet et « bon pour accord » obligatoires
   if (accepted && (signedBy.length < 3 || fd.get('agree') !== 'on')) {
-    redirect(`/f/${token}?erreur=${encodeURIComponent('Pour accepter, tapez votre nom complet et cochez « Bon pour accord ».')}`);
+    back(`/f/${token}`, 'Pour accepter, tapez votre nom complet et cochez « Bon pour accord ».', true);
   }
   await invoices.answerQuote(token, accepted, signedBy);
   redirect(`/f/${token}`);
@@ -667,7 +728,7 @@ const isoDate = (fd, key) => { const v = text(fd, key, 10); return /^\d{4}-\d{2}
 
 export async function uploadDocument(fd) {
   const { company } = await auth.requireCompany();
-  const from = fd.get('from') === 'client' ? `/clients/${Number(fd.get('client_id'))}#documents` : '/documents';
+  const from = fd.get('from') === 'client' ? `/clients/${pubId('client', Number(fd.get('client_id')))}#documents` : '/documents';
   const r = await documents.addDocument(company.id, {
     file: fd.get('file'),
     title: text(fd, 'title', 160),
@@ -686,7 +747,7 @@ export async function deleteDocument(fd) {
   const { company } = await auth.requireCompany();
   await documents.removeDocument(company.id, Number(fd.get('id')));
   revalidatePath('/', 'layout');
-  back(fd.get('from') === 'client' ? `/clients/${Number(fd.get('client_id'))}#documents` : '/documents', 'Document supprimé.');
+  back(fd.get('from') === 'client' ? `/clients/${pubId('client', Number(fd.get('client_id')))}#documents` : '/documents', 'Document supprimé.');
 }
 
 // ---------- Factures récurrentes ----------
@@ -696,9 +757,9 @@ export async function setRepeat(fd) {
   const id = Number(fd.get('id'));
   const active = fd.get('active') === '1';
   const r = await invoices.setRepeat(company, id, { active, day: number(fd, 'day', { min: 1, max: 28, fallback: 28 }) });
-  revalidatePath(`/factures/${id}`);
-  if (!r) back(`/factures/${id}`, 'Seule une facture déjà émise peut servir de modèle.', true);
-  back(`/factures/${id}`, r.active
+  revalidatePath(`/factures/${pubId('facture', id)}`);
+  if (!r) back(`/factures/${pubId('facture', id)}`, 'Seule une facture déjà émise peut servir de modèle.', true);
+  back(`/factures/${pubId('facture', id)}`, r.active
     ? `Facture récurrente : une copie partira automatiquement chaque mois, la prochaine le ${new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${r.next}T12:00:00Z`))}.`
     : 'Récurrence arrêtée : plus aucune copie ne partira.');
 }

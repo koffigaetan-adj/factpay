@@ -22,7 +22,9 @@ before(async () => {
   otherClient = (await one("INSERT INTO clients (company_id, name, email) VALUES ($1, 'Pas à moi', 'p@x.com') RETURNING id", [c2.id])).id;
 });
 
-const pdf = (name = 'contrat.pdf', size = 1000) => new File([Buffer.alloc(size, 1)], name, { type: 'application/pdf' });
+// Commence par le vrai en-tête PDF (%PDF) : le contrôle du contenu (lib/filetype.js) n'écarte que
+// les fichiers dont le contenu ne correspond pas à leur type annoncé.
+const pdf = (name = 'contrat.pdf', size = 1000) => new File([Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(size, 1)])], name, { type: 'application/pdf' });
 
 test('ajout, liste par client, suppression du fichier', async () => {
   const r = await docs.addDocument(c.id, { file: pdf(), category: 'contrat', clientId, expiresOn: '2026-01-01' });

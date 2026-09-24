@@ -8,6 +8,7 @@ delete process.env.SMTP_USER;
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { whatsappLink } from '../lib/payment.js';
+import { pubId, idFrom } from '../lib/ids.js';
 import { addDays, today } from '../lib/dates.js';
 
 let q, one, inv, report, acc, c, clientId;
@@ -117,4 +118,16 @@ test('numérotation : FP481 puis FP482 pour le compte suivant, compteur continu 
   const b = await inv.saveDraft(c2, { ...base, client_id: cl2, lines });
   await inv.sendInvoice(c2, b);
   assert.equal((await inv.getInvoice(c2.id, b)).number, 'FAC-FP482-0002', 'pas de remise à zéro au 1er janvier');
+});
+
+test('identifiants publics : aucun numéro visible, aller-retour exact, faux codes refusés', () => {
+  const code = pubId('facture', 1);
+  assert.match(code, /^[0-9A-Za-z]{11}$/);
+  assert.notEqual(code, pubId('facture', 2));
+  for (const id of [1, 2, 481, 123456, 2147483647]) assert.equal(idFrom('facture', pubId('facture', id)), id);
+  // Le code d'une facture n'ouvre pas un client, et l'ancien format est refusé
+  assert.equal(idFrom('client', code), 0);
+  assert.equal(idFrom('facture', '1'), 0);
+  assert.equal(idFrom('facture', code.slice(0, 10) + (code[10] === 'a' ? 'b' : 'a')), 0);
+  assert.equal(idFrom('facture', undefined), 0);
 });

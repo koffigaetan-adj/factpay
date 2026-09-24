@@ -15,6 +15,7 @@ import Icon from '@/components/Icon';
 import { shiftPeriod, describePeriod } from '@/lib/period';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
 import { statusOf } from '@/lib/status';
+import { pubId, idFrom } from '@/lib/ids';
 
 export const metadata = { title: 'Facture' };
 
@@ -24,7 +25,7 @@ const Fact = ({ label, children }) => <div><dt className="sub">{label}</dt><dd s
 export default async function Page({ params, searchParams }) {
   const { id } = await params;
   const { company } = await requireCompany();
-  const inv = await getInvoice(company.id, id);
+  const inv = await getInvoice(company.id, idFrom('facture', id));
   if (!inv) notFound();
   const quote = isQuote(inv);
   const word = quote ? 'Devis' : 'Facture';
@@ -57,10 +58,10 @@ export default async function Page({ params, searchParams }) {
           <span className={`status ${st.cls}`}>{st.label}</span>
         </div>
         <div className="actions">
-          <a className="button secondary" href={`/factures/${inv.id}/pdf`} target="_blank" rel="noopener">PDF</a>
+          <a className="button secondary" href={`/factures/${pubId('facture', inv.id)}/pdf`} target="_blank" rel="noopener">PDF</a>
           {wa && <a className="button whatsapp" href={wa} target="_blank" rel="noopener"><Icon name="whatsapp" size={18} />WhatsApp</a>}
-          {inv.credit_number && <a className="button secondary" href={`/factures/${inv.id}/avoir`} target="_blank" rel="noopener">Avoir {inv.credit_number}</a>}
-          {editable && <Link className="button secondary" href={`/factures/${inv.id}/modifier`}>Modifier</Link>}
+          {inv.credit_number && <a className="button secondary" href={`/factures/${pubId('facture', inv.id)}/avoir`} target="_blank" rel="noopener">Avoir {inv.credit_number}</a>}
+          {editable && <Link className="button secondary" href={`/factures/${pubId('facture', inv.id)}/modifier`}>Modifier</Link>}
           <form action={duplicateDocument} className="inline">{hidden}
             <button className="secondary">{nextMonth ? `Dupliquer pour ${nextMonth}` : 'Dupliquer'}</button>
           </form>
@@ -83,7 +84,7 @@ export default async function Page({ params, searchParams }) {
 
       <div className="grid2">
         <section>
-          <h2><Link href={`/clients/${inv.client_id}`}>{inv.client_name}</Link></h2>
+          <h2><Link href={`/clients/${pubId('client', inv.client_id)}`}>{inv.client_name}</Link></h2>
           <p className="muted" style={{ marginTop: 0 }}>{inv.client_email}</p>
           {inv.title && <p><strong>{inv.title}</strong></p>}
           <div className="scroll">
@@ -129,13 +130,13 @@ export default async function Page({ params, searchParams }) {
             {inv.reminders_sent > 0 && <Fact label="Relances envoyées">{inv.reminders_sent}, la dernière le {frDate(inv.last_reminder_at)}</Fact>}
             {inv.accepted_at && <Fact label="Accepté par le client">{frDate(inv.accepted_at)}{inv.accepted_by && <>, signé « {inv.accepted_by} »</>}</Fact>}
             {inv.refused_at && <Fact label="Refusé par le client">{frDate(inv.refused_at)}</Fact>}
-            {inv.converted_invoice_id && <Fact label="Facture créée"><Link href={`/factures/${inv.converted_invoice_id}`}>Voir la facture</Link></Fact>}
-            {inv.repeat_source_id && <Fact label="Facture récurrente"><Link href={`/factures/${inv.repeat_source_id}`}>Voir le modèle</Link></Fact>}
-            {inv.source_quote_id && <Fact label="Issue du devis"><Link href={`/factures/${inv.source_quote_id}`}>Voir le devis</Link></Fact>}
+            {inv.converted_invoice_id && <Fact label="Facture créée"><Link href={`/factures/${pubId('facture', inv.converted_invoice_id)}`}>Voir la facture</Link></Fact>}
+            {inv.repeat_source_id && <Fact label="Facture récurrente"><Link href={`/factures/${pubId('facture', inv.repeat_source_id)}`}>Voir le modèle</Link></Fact>}
+            {inv.source_quote_id && <Fact label="Issue du devis"><Link href={`/factures/${pubId('facture', inv.source_quote_id)}`}>Voir le devis</Link></Fact>}
             {inv.paid_declared_at && (
               <Fact label="Paiement signalé par le client">
                 {frDate(inv.paid_declared_at)}, référence <strong>{inv.payment_ref}</strong><br />
-                <a href={`/factures/${inv.id}/justificatif`} target="_blank" rel="noopener">Voir le justificatif</a>
+                <a href={`/factures/${pubId('facture', inv.id)}/justificatif`} target="_blank" rel="noopener">Voir le justificatif</a>
               </Fact>
             )}
             {inv.confirmed_at && (
@@ -144,7 +145,7 @@ export default async function Page({ params, searchParams }) {
             {inv.receipt_sent_at && <Fact label="Facture payée envoyée au client">{frDate(inv.receipt_sent_at)}</Fact>}
             {inv.cancelled_at && (
               <Fact label="Annulée">
-                {frDate(inv.cancelled_at)}{inv.credit_number && <>, avoir <a href={`/factures/${inv.id}/avoir`} target="_blank" rel="noopener">{inv.credit_number}</a></>}
+                {frDate(inv.cancelled_at)}{inv.credit_number && <>, avoir <a href={`/factures/${pubId('facture', inv.id)}/avoir`} target="_blank" rel="noopener">{inv.credit_number}</a></>}
                 {inv.cancel_reason && <><br /><span className="muted">Motif : {inv.cancel_reason}</span></>}
               </Fact>
             )}

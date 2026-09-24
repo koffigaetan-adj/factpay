@@ -7,6 +7,7 @@ import { yearReport, yearsOf } from '@/lib/report';
 import { money } from '@/lib/money';
 import { frDate } from '@/lib/dates';
 import { statusOf } from '@/lib/status';
+import { pubId } from '@/lib/ids';
 
 export const metadata = { title: 'Accès comptable', robots: { index: false, follow: false } };
 
@@ -54,8 +55,8 @@ export default async function Page({ params, searchParams }) {
                       <td className="n">{money(i.amount_due, i.currency)}</td>
                       <td><span className={`status ${st.cls}`}>{st.label}</span></td>
                       <td className="n">
-                        <a href={`${base}/pdf/${i.id}`} target="_blank" rel="noopener">PDF</a>
-                        {i.credit_number && <> · <a href={`${base}/avoir/${i.id}`} target="_blank" rel="noopener">Avoir</a></>}
+                        <a href={`${base}/pdf/${pubId('facture', i.id)}`} target="_blank" rel="noopener">PDF</a>
+                        {i.credit_number && <> · <a href={`${base}/avoir/${pubId('facture', i.id)}`} target="_blank" rel="noopener">Avoir</a></>}
                       </td>
                     </tr>
                   );

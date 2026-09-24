@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { money } from '@/lib/money';
 import { frDate } from '@/lib/dates';
 import { statusOf } from '@/lib/status';
+import { pubId } from '@/lib/ids';
 
 export default function InvoiceTable({ invoices }) {
   return (
@@ -16,7 +17,7 @@ export default function InvoiceTable({ invoices }) {
             return (
               <tr key={i.id}>
                 <td>
-                  <Link className="row-link" href={`/factures/${i.id}`}>{i.number || 'Brouillon'}</Link>
+                  <Link className="row-link" href={`/factures/${pubId('facture', i.id)}`}>{i.number || 'Brouillon'}</Link>
                   {i.title && <span className="sub">{i.title}</span>}
                 </td>
                 <td>{i.client_name}</td>

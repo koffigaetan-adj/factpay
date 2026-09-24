@@ -8,6 +8,7 @@ import { requireCompany } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { addDays, today } from '@/lib/dates';
 import { altOf } from '@/lib/money';
+import { idFrom } from '@/lib/ids';
 
 export const metadata = { title: 'Nouvelle facture' };
 
@@ -25,7 +26,7 @@ export default async function Page({ searchParams }) {
       {clients.length ? (
         <InvoiceEditor
           clients={clients}
-          invoice={sp.client ? { client_id: Number(sp.client) } : null}
+          invoice={sp.client ? { client_id: idFrom('client', sp.client) } : null}
           defaultCurrency={company.currency}
           defaultAlt={company.show_alt_currency ? altOf(company.currency) : null}
           defaultVat={company.default_vat_rate}

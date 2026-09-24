@@ -6,6 +6,7 @@ import { getInvoiceByToken, issuedCompany, isQuote } from '@/lib/invoices';
 import { money, altMoney, short, num, rateLabel, fixedRate } from '@/lib/money';
 import { frDate } from '@/lib/dates';
 import { logoUrl } from '@/lib/url';
+import { verifyFlash } from '@/lib/flash';
 import { paymentItems } from '@/lib/payment';
 import BrandBadge from '@/components/BrandBadge';
 import SubmitButton from '@/components/SubmitButton';
@@ -158,8 +159,8 @@ export default async function Page({ params, searchParams }) {
       <section className="contact" id="contact" aria-labelledby="contact-title">
         <h2 id="contact-title">Une question sur {quote ? 'ce devis' : 'cette facture'} ?</h2>
         <p className="hint">Écrivez directement à {co.name}. La réponse arrivera à {inv.client_email}.</p>
-        {sp.contact && <p className="flash" role="status">{sp.contact}</p>}
-        {sp.contact_erreur && <p className="flash err" role="alert">{sp.contact_erreur}</p>}
+        {sp.contact && verifyFlash('contact', sp.contact, sp.s) && <p className="flash" role="status">{sp.contact}</p>}
+        {sp.contact_erreur && verifyFlash('contact_erreur', sp.contact_erreur, sp.s) && <p className="flash err" role="alert">{sp.contact_erreur}</p>}
         <form action={contactCompany} className="stack">
           <input type="hidden" name="token" value={inv.token} />
           <label>Votre message<textarea name="message" rows={3} required minLength={3} maxLength={2000} placeholder="Ex. Pouvez-vous ajouter notre numéro de bon de commande ?" /></label>

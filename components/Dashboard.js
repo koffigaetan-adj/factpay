@@ -3,6 +3,7 @@ import Icon from '@/components/Icon';
 import InvoiceTable from '@/components/InvoiceTable';
 import { money, moneyAlt, round2, roundFor, fixedRate } from '@/lib/money';
 import { today, frDate } from '@/lib/dates';
+import { pubId } from '@/lib/ids';
 
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
@@ -61,10 +62,10 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
   const todo = [
     toCheck.length && { cls: 'check', href: '/factures?filtre=attente', label: `${toCheck.length} paiement${toCheck.length > 1 ? 's' : ''} signalé${toCheck.length > 1 ? 's' : ''} à vérifier`, detail: 'Vérifie que l\'argent est arrivé, puis confirme.' },
     late.length && { cls: 'late', href: '/factures?filtre=retard', label: `${late.length} facture${late.length > 1 ? 's' : ''} en retard`, detail: `${money(sum(late, 'amount_due'), cur)} attendus. Relance ou renvoie la facture.` },
-    failed.length && { cls: 'late', href: `/factures/${failed[0].id}`, label: `${failed.length} envoi${failed.length > 1 ? 's' : ''} en échec`, detail: 'Nouvel essai automatique chaque matin, ou renvoie à la main.' },
-    acceptedQuotes.length && { cls: 'paid', href: `/factures/${acceptedQuotes[0].id}`, label: `${acceptedQuotes.length} devis accepté${acceptedQuotes.length > 1 ? 's' : ''} à facturer`, detail: 'Transforme-le en facture en un clic.' },
+    failed.length && { cls: 'late', href: `/factures/${pubId('facture', failed[0].id)}`, label: `${failed.length} envoi${failed.length > 1 ? 's' : ''} en échec`, detail: 'Nouvel essai automatique chaque matin, ou renvoie à la main.' },
+    acceptedQuotes.length && { cls: 'paid', href: `/factures/${pubId('facture', acceptedQuotes[0].id)}`, label: `${acceptedQuotes.length} devis accepté${acceptedQuotes.length > 1 ? 's' : ''} à facturer`, detail: 'Transforme-le en facture en un clic.' },
     expiring.length && { cls: 'wait', href: '/documents?type=contrat', label: `${expiring.length} document${expiring.length > 1 ? 's' : ''} à échéance`, detail: 'Contrat ou attestation échu ou qui arrive à son terme dans les 30 jours.' },
-    scheduled.length && { cls: 'draft', href: `/factures/${scheduled[0].id}`, label: `${scheduled.length} envoi${scheduled.length > 1 ? 's' : ''} programmé${scheduled.length > 1 ? 's' : ''}`, detail: `Prochain le ${frDate(scheduled[0].send_on)}.` },
+    scheduled.length && { cls: 'draft', href: `/factures/${pubId('facture', scheduled[0].id)}`, label: `${scheduled.length} envoi${scheduled.length > 1 ? 's' : ''} programmé${scheduled.length > 1 ? 's' : ''}`, detail: `Prochain le ${frDate(scheduled[0].send_on)}.` },
   ].filter(Boolean);
 
   const firstName = user.first_name || user.name.split(' ')[0];

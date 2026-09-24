@@ -13,6 +13,7 @@ import PasswordInput from '@/components/PasswordInput';
 import Icon from '@/components/Icon';
 import { requireCompany } from '@/lib/auth';
 import { one } from '@/lib/db';
+import { logoUrl } from '@/lib/url';
 
 export const metadata = { title: 'Paramètres' };
 
@@ -102,16 +103,24 @@ export default async function Page({ searchParams }) {
             </form>
           </section>
 
-          <div>
-            <form action={deleteAccount}>
-              <SubmitButton className="danger" pendingText="Suppression...">Supprimer le compte</SubmitButton>
-            </form>
-          </div>
+          <section className="card danger-zone" style={{ padding: '24px' }}>
+            <h3 style={{ marginTop: 0, color: 'inherit' }}>Supprimer le compte</h3>
+            <p className="hint">Ton entreprise, tes clients, tes factures et tous tes fichiers (photo, logo, documents) seront effacés <strong>définitivement</strong>. Cette action est irréversible.</p>
+            <details className="cancel">
+              <summary className="neutral">Supprimer mon compte</summary>
+              <form action={deleteAccount} className="stack"
+                onSubmit={(e) => { if (!confirm('Supprimer définitivement ton compte et toutes ses données ?')) e.preventDefault(); }}>
+                <PasswordInput label="Mot de passe actuel" />
+                <label>Tape SUPPRIMER pour confirmer<input name="confirm" required pattern="SUPPRIMER" autoComplete="off" placeholder="SUPPRIMER" /></label>
+                <div><SubmitButton className="danger" pendingText="Suppression...">Supprimer définitivement mon compte</SubmitButton></div>
+              </form>
+            </details>
+          </section>
         </div>
       ) : (
         <form action={saveCompany} className="stack settings-form" key={tab}>
           <input type="hidden" name="from" value="parametres" />
-          <CompanyFields c={company} sections={[tab]} />
+          <CompanyFields c={{ ...company, logo_src: logoUrl(company) }} sections={[tab]} />
           <div className="form-foot"><SubmitButton pendingText="Enregistrement...">Enregistrer</SubmitButton></div>
         </form>
       )}
