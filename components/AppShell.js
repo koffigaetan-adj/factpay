@@ -50,7 +50,7 @@ export default function AppShell({ companyName, userName, email, avatarUrl = nul
         <button type="button" className="sb-icon-btn" onClick={() => setOpen(true)} aria-label="Ouvrir le menu" aria-expanded={open}>
           <Icon name="menu" size={22} />
         </button>
-        <Link href="/tableau-de-bord" className="mobile-brand"><Logo onDark height={28} /><span>{companyName}</span></Link>
+        <Link href="/tableau-de-bord" className="mobile-brand"><Logo height={26} /><span>{companyName}</span></Link>
       </div>
 
       <aside className="sidebar" aria-label="Menu principal">

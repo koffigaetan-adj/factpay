@@ -5,6 +5,7 @@ import { CURRENCIES } from '@/lib/money';
 import { COUNTRIES, countryOf, localNumber, parseMobiles } from '@/lib/payment';
 import { BANKS } from '@/lib/providers';
 import LogoSelect from '@/components/LogoSelect';
+import { digitsOnly, decimalOnly, digitListOnly, phoneDigits, filterInput } from '@/lib/numeric';
 
 const row = (m = {}) => ({ key: Math.random(), operator: m.operator || '', other: '', number: m.number || '' });
 
@@ -32,7 +33,7 @@ function MobileAccounts({ country, initial, legacy }) {
             <span className="phone">
               <span className="dial">+{c.dial}</span>
               <input aria-label={`Numéro ${i + 1}`} inputMode="tel" value={r.number} placeholder={'0'.repeat(c.digits).replace(/(\d{2})(?=\d)/g, '$1 ')}
-                aria-invalid={bad || undefined} onChange={(e) => update(r.key, { number: e.target.value })} />
+                aria-invalid={bad || undefined} onChange={(e) => update(r.key, { number: phoneDigits(e.target.value) })} />
             </span>
             <button type="button" className="remove" aria-label={`Retirer le numéro ${i + 1}`}
               onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((x) => x.key !== r.key) : [row()]))}>×</button>
@@ -161,7 +162,7 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
                   {Object.entries(CURRENCIES).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                 </select>
               </label>
-              <label>Délai de paiement (jours)<input name="payment_terms" type="number" min="0" max="365" defaultValue={c.payment_terms ?? 14} /></label>
+              <label>Délai de paiement (jours)<input name="payment_terms" inputMode="numeric" maxLength={3} onInput={filterInput(digitsOnly)} defaultValue={c.payment_terms ?? 14} /></label>
             </div>
             <label className="switch-row">
               <span>Sur les nouvelles factures, proposer par défaut l'équivalent € ↔ F CFA (parité fixe 1 € = 655,957 F CFA). Modifiable facture par facture.</span>
@@ -173,10 +174,10 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Taxes</h3>
             <div className="row">
               <label>TVA par défaut (%) <span className="help">0 si tu n'y es pas assujetti</span>
-                <input name="default_vat_rate" type="number" step="0.01" min="0" max="100" defaultValue={c.default_vat_rate ?? 0} />
+                <input name="default_vat_rate" inputMode="decimal" maxLength={6} onInput={filterInput(decimalOnly)} defaultValue={c.default_vat_rate ?? 0} />
               </label>
               <label>À mettre de côté pour tes impôts (%) <span className="help">visible par toi seul</span>
-                <input name="tax_reserve_rate" type="number" step="0.1" min="0" max="100" defaultValue={c.tax_reserve_rate ?? 0} />
+                <input name="tax_reserve_rate" inputMode="decimal" maxLength={6} onInput={filterInput(decimalOnly)} defaultValue={c.tax_reserve_rate ?? 0} />
               </label>
             </div>
           </fieldset>
@@ -193,7 +194,7 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
                 <span className="help">
                   Indique le nombre de jours de retard pour chaque relance (ex: <b>3, 10, 15</b> enverra un email le 3e jour de retard, puis le 10e, etc.). Maximum 5 relances.
                 </span>
-                <input name="reminder_days" defaultValue={c.reminder_days || '3,10'} placeholder="3, 10" style={{ maxWidth: 200 }} />
+                <input name="reminder_days" inputMode="numeric" onInput={filterInput(digitListOnly)} defaultValue={c.reminder_days || '3,10'} placeholder="3, 10" style={{ maxWidth: 200 }} />
               </label>
             )}
           </fieldset>
@@ -205,7 +206,7 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
                 <input name="quote_prefix" maxLength={10} defaultValue={c.quote_prefix || 'DEV'} onInput={prefixInput}
                   pattern="[A-Z]+" title="Lettres de A à Z uniquement" autoCapitalize="characters" spellCheck={false} />
               </label>
-              <label>Durée de validité (jours)<input name="quote_validity" type="number" min="1" max="365" defaultValue={c.quote_validity ?? 30} /></label>
+              <label>Durée de validité (jours)<input name="quote_validity" inputMode="numeric" maxLength={3} onInput={filterInput(digitsOnly)} defaultValue={c.quote_validity ?? 30} /></label>
             </div>
           </fieldset>
 

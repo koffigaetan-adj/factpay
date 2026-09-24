@@ -11,12 +11,15 @@ import AvatarPicker from '@/components/AvatarPicker';
 import SubmitButton from '@/components/SubmitButton';
 import PasswordInput from '@/components/PasswordInput';
 import DeleteAccountForm from '@/components/DeleteAccountForm';
+import Modal from '@/components/Modal';
 import Icon from '@/components/Icon';
 import { requireCompany } from '@/lib/auth';
 import { one } from '@/lib/db';
 import { logoUrl } from '@/lib/url';
 
 export const metadata = { title: 'Paramètres' };
+
+const THEME_LABELS = { light: 'Clair', dark: 'Sombre', auto: "Automatique (réglage de l'appareil)" };
 
 // Un onglet par rubrique, pour ne pas tout afficher d'un coup
 const TABS = {
@@ -32,6 +35,8 @@ export default async function Page({ searchParams }) {
   const { user, company } = await requireCompany();
   const sp = await searchParams;
   const tab = TABS[sp.onglet] ? sp.onglet : 'compte';
+  const themeCookie = (await cookies()).get('theme')?.value;
+  const theme = ['auto', 'dark'].includes(themeCookie) ? themeCookie : 'light';
   const profile = tab === 'compte' ? await one('SELECT first_name, last_name, email, avatar_key, avatar_updated_at FROM users WHERE id = $1', [user.id]) : null;
 
   return (
@@ -80,28 +85,44 @@ export default async function Page({ searchParams }) {
             </div>
           </section>
 
-          <section className="card" style={{ padding: '24px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Préférences d'affichage</h3>
-            <ThemePicker current={['auto', 'dark'].includes((await cookies()).get('theme')?.value) ? (await cookies()).get('theme').value : 'light'} />
-          </section>
-
-          <section className="card" style={{ padding: '24px' }}>
-            <h3 style={{ marginTop: 0 }}>Adresse e-mail</h3>
-            <p className="hint">Actuelle : <strong>{profile.email}</strong>. La nouvelle adresse ne remplace l'ancienne qu'une fois confirmée.</p>
-            <form action={requestEmailChange} className="stack">
-              <label>Nouvelle adresse<input name="email" type="email" required autoComplete="email" /></label>
-              <PasswordInput label="Mot de passe actuel" />
-              <div><SubmitButton className="secondary" pendingText="Envoi...">Recevoir le lien de confirmation</SubmitButton></div>
-            </form>
-          </section>
-
-          <section className="card" style={{ padding: '24px' }}>
-            <h3 style={{ marginTop: 0 }}>Mot de passe</h3>
-            <form action={changePassword} className="stack">
-              <PasswordInput label="Mot de passe actuel" name="current" />
-              <PasswordFields label="Nouveau mot de passe" />
-              <div><SubmitButton pendingText="Changement...">Changer le mot de passe</SubmitButton></div>
-            </form>
+          {/* Réglages du compte en lignes compactes : chacun s'ouvre dans une fenêtre */}
+          <section className="card setting-rows" style={{ padding: '8px 24px' }}>
+            <div className="setting-row">
+              <div>
+                <strong>Adresse e-mail</strong>
+                <span className="sub">{profile.email}</span>
+              </div>
+              <Modal label="Modifier" title="Changer d'adresse e-mail" buttonClass="secondary small">
+                <p className="hint">Actuelle : <strong>{profile.email}</strong>. La nouvelle adresse ne remplace l'ancienne qu'une fois confirmée.</p>
+                <form action={requestEmailChange} className="stack">
+                  <label>Nouvelle adresse<input name="email" type="email" required autoComplete="email" /></label>
+                  <PasswordInput label="Mot de passe actuel" />
+                  <div className="form-actions"><SubmitButton pendingText="Envoi...">Recevoir le lien de confirmation</SubmitButton></div>
+                </form>
+              </Modal>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Mot de passe</strong>
+                <span className="sub">••••••••••</span>
+              </div>
+              <Modal label="Modifier" title="Changer de mot de passe" buttonClass="secondary small">
+                <form action={changePassword} className="stack">
+                  <PasswordInput label="Mot de passe actuel" name="current" />
+                  <PasswordFields label="Nouveau mot de passe" />
+                  <div className="form-actions"><SubmitButton pendingText="Changement...">Changer le mot de passe</SubmitButton></div>
+                </form>
+              </Modal>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>Apparence</strong>
+                <span className="sub">{THEME_LABELS[theme]}</span>
+              </div>
+              <Modal label="Modifier" title="Apparence" buttonClass="secondary small">
+                <ThemePicker current={theme} />
+              </Modal>
+            </div>
           </section>
 
           <section className="card danger-zone" style={{ padding: '24px' }}>

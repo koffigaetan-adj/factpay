@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { workedDays, offReason, isWeekend, describePeriod, periodHours } from '@/lib/period';
 import { holidayName, COUNTRIES } from '@/lib/holidays';
+import DatePicker from '@/components/DatePicker';
+import { decimalOnly } from '@/lib/numeric';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const monthLabel = (ym) => new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${ym}-01T12:00:00Z`));
@@ -53,18 +55,20 @@ export default function PeriodPicker({ value: p, onChange }) {
 
       <div className="period-fields">
         {p.mode === 'mois' && (
-          <label>Mois
-            <input type="month" value={p.month} onChange={(e) => { set({ month: e.target.value }); if (e.target.value) setView(e.target.value); }} />
-          </label>
+          <div className="field"><span className="field-title">Mois</span>
+            <DatePicker mode="month" value={p.month} required label="Mois" onChange={(v) => { set({ month: v }); if (v) setView(v); }} />
+          </div>
         )}
         {p.mode === 'periode' && (
           <>
-            <label>Du<input type="date" value={p.from} onChange={(e) => { set({ from: e.target.value }); if (e.target.value) setView(e.target.value.slice(0, 7)); }} /></label>
-            <label>Au<input type="date" value={p.to} min={p.from || undefined} onChange={(e) => set({ to: e.target.value })} /></label>
+            <div className="field"><span className="field-title">Du</span>
+              <DatePicker value={p.from} label="Premier jour" onChange={(v) => { set({ from: v }); if (v) setView(v.slice(0, 7)); }} /></div>
+            <div className="field"><span className="field-title">Au</span>
+              <DatePicker value={p.to} min={p.from || undefined} label="Dernier jour" onChange={(v) => set({ to: v })} /></div>
           </>
         )}
         <label className="hpd">Heures par jour
-          <input inputMode="decimal" value={p.hours_per_day} onChange={(e) => set({ hours_per_day: e.target.value })} />
+          <input inputMode="decimal" value={p.hours_per_day} onChange={(e) => set({ hours_per_day: decimalOnly(e.target.value) })} />
         </label>
       </div>
 

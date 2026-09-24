@@ -350,6 +350,17 @@ function companyFields(fd, sections) {
   return c;
 }
 
+// Enregistre un fichier dans le stockage ; en cas d'échec, le détail part dans les journaux
+// et la personne revient sur la page avec un message clair, au lieu d'une page d'erreur
+async function storeFile(file, folder, backTo) {
+  try {
+    return await saveFile(file, folder);
+  } catch (err) {
+    console.error(`Fichier non enregistré (${folder}) :`, err);
+  }
+  back(backTo, "Le fichier n'a pas pu être enregistré. Réessaie dans un instant.", true);
+}
+
 // Logo : PNG ou JPEG (les formats que le PDF sait afficher), 1 Mo au plus
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
 async function saveLogo(fd, userId, from) {
@@ -362,7 +373,7 @@ async function saveLogo(fd, userId, from) {
   if (!LOGO_TYPES.includes(file.type)) back(from, 'Le logo doit être une image PNG ou JPEG.', true);
   if (file.size > 1024 * 1024) back(from, 'Le logo dépasse 1 Mo. Réduis sa taille et réessaie.', true);
   if (!(await matchesType(file))) back(from, "Ce fichier n'est pas une véritable image PNG ou JPEG.", true);
-  const key = await saveFile(file, 'logos');
+  const key = await storeFile(file, 'logos', from);
   await q('UPDATE companies SET logo_key = $1, logo_mime = $2, logo_updated_at = now() WHERE owner_id = $3', [key, file.type, userId]);
 }
 
@@ -468,7 +479,7 @@ export async function saveAvatar(fd) {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) back(tab, 'La photo doit être une image PNG, JPEG ou WebP.', true);
   if (file.size > 1024 * 1024) back(tab, 'La photo dépasse 1 Mo. Réduis sa taille et réessaie.', true);
   if (!(await matchesType(file))) back(tab, "Ce fichier n'est pas une véritable image PNG, JPEG ou WebP.", true);
-  const key = await saveFile(file, 'avatars');
+  const key = await storeFile(file, 'avatars', tab);
   await q('UPDATE users SET avatar_key = $1, avatar_mime = $2, avatar_updated_at = now() WHERE id = $3', [key, file.type, user.id]);
   if (old?.avatar_key) await deleteFile(old.avatar_key);
   revalidatePath('/', 'layout');
@@ -699,7 +710,7 @@ export async function declarePayment(fd) {
   if (file.size > MAX_BYTES) back(page, 'Le fichier dépasse 4 Mo.', true);
   if (!(await matchesType(file))) back(page, "Ce fichier n'est pas une véritable image ou un PDF valide.", true);
 
-  const proofKey = await saveFile(file);
+  const proofKey = await storeFile(file, 'justificatifs', page);
   await invoices.declarePayment(token, { reference, proofKey, proofName: file.name.slice(0, 200), proofMime: file.type });
   revalidatePath(page);
   redirect(page);

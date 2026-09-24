@@ -42,6 +42,6 @@ test('ajout, liste par client, suppression du fichier', async () => {
 test('formats, taille et client d\'une autre entreprise refusés', async () => {
   const exe = new File([Buffer.alloc(10)], 'virus.exe', { type: 'application/x-msdownload' });
   assert.match((await docs.addDocument(c.id, { file: exe })).error, /Format non accepté/);
-  assert.match((await docs.addDocument(c.id, { file: pdf('gros.pdf', 5 * 1024 * 1024) })).error, /4 Mo/);
+  assert.match((await docs.addDocument(c.id, { file: pdf('gros.pdf', 1200 * 1024) })).error, /1 Mo/);
   assert.equal((await docs.addDocument(c.id, { file: pdf(), clientId: otherClient })).error, 'Client introuvable.');
 });

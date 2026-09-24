@@ -10,6 +10,7 @@ import { requireCompany } from '@/lib/auth';
 import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages, isQuote, reminderDays } from '@/lib/invoices';
 import { money, altMoney, num, rateLabel } from '@/lib/money';
 import { frDate, frDateTime, today } from '@/lib/dates';
+import DatePicker from '@/components/DatePicker';
 import { paymentMethodOptions, whatsappLink } from '@/lib/payment';
 import Icon from '@/components/Icon';
 import { shiftPeriod, describePeriod } from '@/lib/period';
@@ -203,7 +204,7 @@ export default async function Page({ params, searchParams }) {
               </p>
               <form action={confirmInvoicePayment} className="stack">{hidden}
                 <div className="row">
-                  <label>Date du paiement<input type="date" name="paid_on" required defaultValue={today()} max={today()} /></label>
+                  <div className="field"><span className="field-title">Date du paiement</span><DatePicker name="paid_on" required defaultValue={today()} max={today()} label="Date du paiement" /></div>
                   <label>Moyen
                     <select name="method" defaultValue="">
                       <option value="">Non précisé</option>

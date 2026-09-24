@@ -8,6 +8,7 @@ import { saveInvoice } from '@/app/actions';
 import SubmitButton from '@/components/SubmitButton';
 import Icon from '@/components/Icon';
 import ScheduleField from '@/components/ScheduleField';
+import { decimalOnly } from '@/lib/numeric';
 
 const UNITS = ['heure(s)', 'jour(s)', 'forfait', 'unité(s)', 'mois'];
 const key = () => Math.random();
@@ -136,7 +137,7 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
             ) : (
               <div className="rate-live">
                 <label>Taux du jour <span className="help">1 {short(currency)} = … {short(alt)}</span>
-                  <input name="alt_rate" inputMode="decimal" required value={manualRate} onChange={(e) => setManualRate(e.target.value)} placeholder="Ex. 600" />
+                  <input name="alt_rate" inputMode="decimal" required value={manualRate} onChange={(e) => setManualRate(decimalOnly(e.target.value))} placeholder="Ex. 600" />
                 </label>
                 <span className="help">
                   {live?.loading && 'Recherche du taux du jour…'}
@@ -181,10 +182,10 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
                   </td>
                   <td>
                     {l.kind === 'prime' ? (
-                      <span className="times">×<input aria-label={`Nombre de primes, ligne ${i + 1}`} inputMode="decimal" value={lines[i].quantity} onChange={(e) => update(l.key, 'quantity', e.target.value)} /></span>
+                      <span className="times">×<input aria-label={`Nombre de primes, ligne ${i + 1}`} inputMode="decimal" value={lines[i].quantity} onChange={(e) => update(l.key, 'quantity', decimalOnly(e.target.value))} /></span>
                     ) : l.kind === 'period'
                       ? <output className="qty-locked" aria-label={`Quantité, ligne ${i + 1}`}>{hoursLabel(l.quantity)}</output>
-                      : <input aria-label={`Quantité, ligne ${i + 1}`} inputMode="decimal" value={lines[i].quantity} onChange={(e) => update(l.key, 'quantity', e.target.value)} />}
+                      : <input aria-label={`Quantité, ligne ${i + 1}`} inputMode="decimal" value={lines[i].quantity} onChange={(e) => update(l.key, 'quantity', decimalOnly(e.target.value))} />}
                   </td>
                   <td>
                     {l.kind === 'prime' ? null : l.kind === 'period'
@@ -197,7 +198,7 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
                   </td>
                   <td>
                     <input aria-label={`${{ period: 'Taux horaire', prime: 'Montant de la prime' }[l.kind] || 'Prix unitaire'}, ligne ${i + 1}`} inputMode="decimal"
-                      value={lines[i].unit_price} onChange={(e) => update(l.key, 'unit_price', e.target.value)}
+                      value={lines[i].unit_price} onChange={(e) => update(l.key, 'unit_price', decimalOnly(e.target.value))}
                       placeholder={{ period: 'Taux horaire', prime: 'Montant' }[l.kind] || '0'} />
                   </td>
                   <td className="n">{money(l.quantity * l.unit_price, currency)}</td>
@@ -232,7 +233,7 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
                 <div className="wh-box">
                   <div>
                     <label htmlFor="vat">Taux (%)</label>
-                    <input id="vat" inputMode="decimal" value={vat} onChange={(e) => setVat(e.target.value)} className="pct" />
+                    <input id="vat" inputMode="decimal" value={vat} onChange={(e) => setVat(decimalOnly(e.target.value))} className="pct" />
                   </div>
                 </div>
               )}
@@ -247,7 +248,7 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
                   <input name="withholding_label" aria-label="Nom de la retenue" maxLength={80} value={whLabel} onChange={(e) => setWhLabel(e.target.value)} />
                   <div>
                     <label htmlFor="wh">Taux (%)</label>
-                    <input id="wh" inputMode="decimal" value={wh} onChange={(e) => setWh(e.target.value)} className="pct" />
+                    <input id="wh" inputMode="decimal" value={wh} onChange={(e) => setWh(decimalOnly(e.target.value))} className="pct" />
                   </div>
                 </div>
               )}

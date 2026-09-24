@@ -1,6 +1,7 @@
 import { uploadDocument, deleteDocument } from '@/app/actions';
 import { CATEGORIES, badgeOf, sizeLabel, expiryState } from '@/lib/documents';
 import { frDate } from '@/lib/dates';
+import DatePicker from '@/components/DatePicker';
 import { pubId } from '@/lib/ids';
 
 // Formulaire d'ajout. clientId : document rattaché d'office à ce client (page client).
@@ -8,7 +9,7 @@ export function DocumentForm({ clients = [], clientId = null, defaultClient = ''
   return (
     <form action={uploadDocument} className="stack">
       {clientId && <><input type="hidden" name="client_id" value={clientId} /><input type="hidden" name="from" value="client" /></>}
-      <label>Fichier <span className="help">PDF, image, Word, Excel ou texte, 4 Mo au plus</span>
+      <label>Fichier <span className="help">PDF, image, Word, Excel ou texte, 1 Mo au plus</span>
         <input name="file" type="file" required
           accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.odt,.txt,application/pdf,image/*" />
       </label>
@@ -29,8 +30,8 @@ export function DocumentForm({ clients = [], clientId = null, defaultClient = ''
         </label>
       )}
       <div className="row">
-        <label>Date du document <span className="help">facultatif</span><input name="doc_date" type="date" /></label>
-        <label>Échéance <span className="help">fin de contrat, validité…</span><input name="expires_on" type="date" /></label>
+        <div className="field"><span className="field-title">Date du document <span className="help">facultatif</span></span><DatePicker name="doc_date" label="Date du document" /></div>
+        <div className="field"><span className="field-title">Échéance <span className="help">fin de contrat, validité…</span></span><DatePicker name="expires_on" label="Échéance" /></div>
       </div>
       <label>Note <span className="help">facultatif</span><textarea name="notes" rows={2} maxLength={500} /></label>
       <div><button>Ajouter le document</button></div>
