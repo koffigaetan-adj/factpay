@@ -1,4 +1,4 @@
-# Factures & Paie
+# FactPay
 
 Logiciel de facturation en ligne, multi-comptes. Chaque personne crée son compte, renseigne son entreprise, puis crée et envoie ses factures en francs CFA ou en euros.
 
@@ -23,7 +23,7 @@ Logiciel de facturation en ligne, multi-comptes. Chaque personne crée son compt
 | Application | Next.js 16 (App Router, Server Actions) |
 | Base de données | Postgres chez **Neon** en ligne, **PGlite** (Postgres local, dans `.data/`) sur ton ordinateur |
 | Justificatifs | **Vercel Blob** en ligne, dossier `.data/uploads` en local |
-| E-mails | **Resend** (affichés dans la console tant que `RESEND_API_KEY` est vide) |
+| E-mails | **SMTP** (Gmail pour démarrer ; affichés dans la console tant que `SMTP_USER` est vide) |
 | Envoi programmé | **Vercel Cron**, chaque jour à 7 h (UTC, heure de Lomé), voir `vercel.json` |
 | PDF | pdfkit |
 
@@ -53,12 +53,15 @@ Dans le projet : **Storage → Create Database → Neon (Postgres)**, région **
 ### 4. Ajouter le stockage des justificatifs (Blob)
 **Storage → Create → Blob**. Vercel ajoute `BLOB_READ_WRITE_TOKEN`.
 
-### 5. Configurer les e-mails (Resend)
-1. Crée un compte sur resend.com et ajoute ton nom de domaine (Domains → Add Domain). Suis les instructions DNS.
-2. Crée une clé API.
+### 5. Configurer les e-mails (Gmail)
+1. Sur ton compte Google, active la **validation en deux étapes** (myaccount.google.com → Sécurité).
+2. Crée un **mot de passe d'application** : myaccount.google.com/apppasswords. Google affiche 16 lettres.
 3. Dans Vercel, **Settings → Environment Variables** :
-   - `RESEND_API_KEY` = la clé
-   - `MAIL_FROM` = `Factures <factures@ton-domaine.com>` (une adresse de ton domaine vérifié)
+   - `SMTP_USER` = ton adresse Gmail
+   - `SMTP_PASS` = les 16 lettres, sans espaces
+   - `MAIL_FROM` = `FactPay <ton-adresse@gmail.com>` (Gmail impose ta propre adresse)
+
+Gmail limite à environ 500 e-mails par jour. Pour passer plus tard à un autre service (Resend, Brevo…), il suffit de changer `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` et `SMTP_PASS`.
 
 ### 6. Les autres variables
 - `CRON_SECRET` : une longue chaîne aléatoire. Vercel l'envoie automatiquement à la tâche quotidienne.
@@ -79,7 +82,7 @@ Pour démarrer, tout tient dans les offres gratuites :
 | Vercel Hobby | usage personnel, non commercial |
 | Neon | 0,5 Go de base |
 | Vercel Blob | 1 Go |
-| Resend | 3 000 e-mails par mois |
+| Gmail | environ 500 e-mails par jour |
 
 Si le logiciel est vendu ou utilisé par des entreprises, les conditions de Vercel demandent l'offre **Pro** (20 $ par mois).
 

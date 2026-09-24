@@ -26,10 +26,10 @@ export default async function Page({ params, searchParams }) {
       <InvoiceEditor
         clients={clients}
         invoice={invoice}
-        currency={invoice.currency}
-        showAlt={company.show_alt_currency}
+        defaultCurrency={company.currency}
         defaultVat={company.default_vat_rate}
         tomorrow={addDays(today(), 1)}
+        thisMonth={today().slice(0, 7)}
       />
     </>
   );

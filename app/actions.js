@@ -6,9 +6,13 @@ import { q, one } from '@/lib/db';
 import * as auth from '@/lib/auth';
 import * as invoices from '@/lib/invoices';
 import { sendMail, mailTestMode } from '@/lib/mail';
+import { verifyEmail, resetPasswordEmail, withImages } from '@/lib/emails';
 import { saveFile } from '@/lib/storage';
 import { appUrl } from '@/lib/url';
-import { CURRENCIES } from '@/lib/money';
+import { CURRENCIES, fixedRate } from '@/lib/money';
+import { passwordProblem } from '@/lib/password';
+import { cleanPeriod, periodHours } from '@/lib/period';
+import { COUNTRIES, cleanMobiles } from '@/lib/payment';
 
 // Revient sur une page avec un message (?ok=… ou ?erreur=…)
 function back(path, message, error = false) {
@@ -25,19 +29,49 @@ const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 // ---------- Comptes ----------
 
+// Envoie le lien de confirmation de l'adresse e-mail
+async function sendVerification(user) {
+  const token = await auth.createEmailVerification(user.id);
+  await sendMail({ to: user.email, ...(await withImages(verifyEmail(user.first_name || user.name, `${appUrl()}/confirmer/${token}`))) });
+}
+
 export async function signup(fd) {
-  const name = text(fd, 'name', 120);
+  const firstName = text(fd, 'first_name', 60);
+  const lastName = text(fd, 'last_name', 60);
   const email = text(fd, 'email', 200).toLowerCase();
   const password = String(fd.get('password') || '');
-  if (!name || !emailOk(email)) back('/inscription', 'Indique ton nom et une adresse e-mail valide.', true);
-  if (password.length < 8) back('/inscription', 'Le mot de passe doit faire au moins 8 caractères.', true);
+  if (!firstName || !lastName) back('/inscription', 'Indique ton prénom et ton nom.', true);
+  if (!emailOk(email)) back('/inscription', 'Indique une adresse e-mail valide.', true);
+  const weak = passwordProblem(password, String(fd.get('confirm') || ''));
+  if (weak) back('/inscription', weak, true);
   if (await one('SELECT id FROM users WHERE email = $1', [email])) {
     back('/connexion', 'Un compte existe déjà avec cette adresse. Connecte-toi.', true);
   }
-  const user = await one('INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id',
-    [email, name, await auth.hashPassword(password)]);
+  const name = `${firstName} ${lastName}`;
+  const user = await one(`INSERT INTO users (email, name, first_name, last_name, password_hash)
+    VALUES ($1, $2, $3, $4, $5) RETURNING id`, [email, name, firstName, lastName, await auth.hashPassword(password)]);
   await auth.startSession(user.id);
-  redirect('/bienvenue');
+  try {
+    await sendVerification({ id: user.id, email, first_name: firstName });
+  } catch (err) {
+    console.error('Lien de confirmation non envoyé :', err.message);
+    back('/confirmer-email', "L'e-mail de confirmation n'a pas pu partir. Clique sur « Renvoyer le lien ».", true);
+  }
+  if (mailTestMode()) back('/confirmer-email', 'Mode test : le lien de confirmation est affiché dans la console du serveur.');
+  redirect('/confirmer-email');
+}
+
+export async function resendVerification() {
+  const user = await auth.currentUser();
+  if (!user) redirect('/connexion');
+  if (user.email_verified_at) redirect('/tableau-de-bord');
+  if (await auth.verificationSentRecently(user.id)) back('/confirmer-email', "Un lien vient de partir. Attends une minute avant d'en demander un autre.", true);
+  try {
+    await sendVerification(user);
+  } catch (err) {
+    back('/confirmer-email', `L'envoi a échoué : ${err.message}`, true);
+  }
+  back('/confirmer-email', `Nouveau lien envoyé à ${user.email}.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
 }
 
 export async function login(fd) {
@@ -61,14 +95,10 @@ export async function logout() {
 
 export async function requestPasswordReset(fd) {
   const email = text(fd, 'email', 200).toLowerCase();
-  const user = email && await one('SELECT id, name FROM users WHERE email = $1', [email]);
+  const user = email && await one('SELECT id, name, first_name FROM users WHERE email = $1', [email]);
   if (user) {
     const token = await auth.createPasswordReset(user.id);
-    await sendMail({
-      to: email,
-      subject: 'Réinitialiser ton mot de passe',
-      text: `Bonjour ${user.name},\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable 1 heure) :\n${appUrl()}/reinitialiser/${token}\n\nSi tu n'as rien demandé, ignore cet e-mail.`,
-    });
+    await sendMail({ to: email, ...(await withImages(resetPasswordEmail(user.first_name || user.name, `${appUrl()}/reinitialiser/${token}`))) });
   }
   // Même réponse que le compte existe ou non : on ne révèle pas qui est inscrit.
   back('/mot-de-passe-oublie', `Si un compte existe pour cette adresse, un lien vient d'y être envoyé.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
@@ -79,8 +109,11 @@ export async function resetPassword(fd) {
   const password = String(fd.get('password') || '');
   const reset = await auth.findPasswordReset(token);
   if (!reset) back('/mot-de-passe-oublie', 'Ce lien a expiré ou a déjà servi. Demande-en un nouveau.', true);
-  if (password.length < 8) back(`/reinitialiser/${token}`, 'Le mot de passe doit faire au moins 8 caractères.', true);
-  await q('UPDATE users SET password_hash = $1 WHERE id = $2', [await auth.hashPassword(password), reset.user_id]);
+  const weak = passwordProblem(password, String(fd.get('confirm') || ''));
+  if (weak) back(`/reinitialiser/${token}`, weak, true);
+  // Le lien reçu par e-mail prouve aussi que l'adresse est la bonne
+  await q('UPDATE users SET password_hash = $1, email_verified_at = coalesce(email_verified_at, now()) WHERE id = $2',
+    [await auth.hashPassword(password), reset.user_id]);
   await auth.markResetUsed(token);
   await auth.endAllSessions(reset.user_id);
   await auth.startSession(reset.user_id);
@@ -91,57 +124,111 @@ export async function changePassword(fd) {
   const user = await auth.requireUser();
   const row = await one('SELECT password_hash FROM users WHERE id = $1', [user.id]);
   if (!(await auth.checkPassword(String(fd.get('current') || ''), row.password_hash))) {
-    back('/parametres', 'Le mot de passe actuel est incorrect.', true);
+    back('/parametres?onglet=compte', 'Le mot de passe actuel est incorrect.', true);
   }
   const password = String(fd.get('password') || '');
-  if (password.length < 8) back('/parametres', 'Le nouveau mot de passe doit faire au moins 8 caractères.', true);
+  const weak = passwordProblem(password, String(fd.get('confirm') || ''));
+  if (weak) back('/parametres?onglet=compte', weak, true);
   await q('UPDATE users SET password_hash = $1 WHERE id = $2', [await auth.hashPassword(password), user.id]);
   await auth.endAllSessions(user.id);
   await auth.startSession(user.id);
-  back('/parametres', 'Mot de passe changé. Tes autres appareils ont été déconnectés.');
+  back('/parametres?onglet=compte', 'Mot de passe changé. Tes autres appareils ont été déconnectés.');
 }
 
 // ---------- Entreprise ----------
 
-function companyFields(fd) {
-  const currency = String(fd.get('currency'));
-  return {
-    name: text(fd, 'name', 160),
-    address: text(fd, 'address', 400),
-    phone: text(fd, 'phone', 60),
-    email: text(fd, 'email', 200),
-    legal_ids: text(fd, 'legal_ids', 200),
-    bank_name: text(fd, 'bank_name', 120),
-    iban: text(fd, 'iban', 60),
-    bic: text(fd, 'bic', 20),
-    mobile_money: text(fd, 'mobile_money', 200),
-    currency: CURRENCIES[currency] ? currency : 'XOF',
-    show_alt_currency: fd.get('show_alt_currency') === 'on',
-    payment_terms: Math.round(number(fd, 'payment_terms', { max: 365, fallback: 14 })),
-    default_vat_rate: number(fd, 'default_vat_rate', { max: 100 }),
-    tax_reserve_rate: number(fd, 'tax_reserve_rate', { max: 100 }),
-    invoice_prefix: (text(fd, 'invoice_prefix', 10).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'FAC'),
-    footer_note: text(fd, 'footer_note', 500),
-  };
+// Champs de l'entreprise, par rubrique : un formulaire n'enregistre que les rubriques qu'il contient
+const SECTIONS = ['entreprise', 'paiement', 'factures'];
+function companyFields(fd, sections) {
+  const c = {};
+  if (sections.includes('entreprise')) {
+    Object.assign(c, {
+      name: text(fd, 'name', 160),
+      address: text(fd, 'address', 400),
+      phone: text(fd, 'phone', 60),
+      email: text(fd, 'email', 200),
+      legal_ids: text(fd, 'legal_ids', 200),
+      country: COUNTRIES[fd.get('country')] ? String(fd.get('country')) : 'TG',
+    });
+  }
+  if (sections.includes('paiement')) {
+    Object.assign(c, {
+      bank_name: text(fd, 'bank_name', 120),
+      iban: text(fd, 'iban', 60),
+      bic: text(fd, 'bic', 20),
+      mobile_money: text(fd, 'mobile_money', 200),
+      spi_alias: text(fd, 'spi_alias', 100),
+    });
+  }
+  if (sections.includes('factures')) {
+    const currency = String(fd.get('currency'));
+    Object.assign(c, {
+      currency: CURRENCIES[currency] ? currency : 'XOF',
+      show_alt_currency: fd.get('show_alt_currency') === 'on',
+      payment_terms: Math.round(number(fd, 'payment_terms', { max: 365, fallback: 14 })),
+      default_vat_rate: number(fd, 'default_vat_rate', { max: 100 }),
+      tax_reserve_rate: number(fd, 'tax_reserve_rate', { max: 100 }),
+      invoice_prefix: (text(fd, 'invoice_prefix', 10).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'FAC'),
+      footer_note: text(fd, 'footer_note', 500),
+    });
+  }
+  return c;
+}
+
+// Logo : PNG ou JPEG (les formats que le PDF sait afficher), 1 Mo au plus
+const LOGO_TYPES = ['image/png', 'image/jpeg'];
+async function saveLogo(fd, userId, from) {
+  if (fd.get('remove_logo') === 'on') {
+    await q('UPDATE companies SET logo_key = NULL, logo_mime = NULL, logo_updated_at = now() WHERE owner_id = $1', [userId]);
+    return;
+  }
+  const file = fd.get('logo');
+  if (!file || typeof file === 'string' || !file.size) return;
+  if (!LOGO_TYPES.includes(file.type)) back(from, 'Le logo doit être une image PNG ou JPEG.', true);
+  if (file.size > 1024 * 1024) back(from, 'Le logo dépasse 1 Mo. Réduis sa taille et réessaie.', true);
+  const key = await saveFile(file, 'logos');
+  await q('UPDATE companies SET logo_key = $1, logo_mime = $2, logo_updated_at = now() WHERE owner_id = $3', [key, file.type, userId]);
 }
 
 export async function saveCompany(fd) {
   const user = await auth.requireUser();
-  const c = companyFields(fd);
-  const from = fd.get('from') === 'parametres' ? '/parametres' : '/bienvenue';
-  if (!c.name) back(from, 'Le nom de l\'entreprise est obligatoire.', true);
+  const sections = fd.getAll('sections').map(String).filter((x) => SECTIONS.includes(x));
+  const c = companyFields(fd, sections);
+  const inSettings = fd.get('from') === 'parametres';
+  const from = inSettings ? `/parametres?onglet=${sections[0] || 'entreprise'}` : '/bienvenue';
+  const existing = await one('SELECT id, country FROM companies WHERE owner_id = $1', [user.id]);
+  if ((sections.includes('entreprise') || !existing) && !c.name) back(from, "Le nom de l'entreprise est obligatoire.", true);
+  if (sections.includes('paiement')) {
+    let rawMobiles = [];
+    try { rawMobiles = JSON.parse(String(fd.get('mobile_accounts') || '[]')); } catch { /* liste invalide */ }
+    // Les numéros suivent le pays de l'entreprise (rubrique Entreprise, ou déjà enregistré)
+    const mobiles = cleanMobiles(rawMobiles, c.country || existing?.country || 'TG');
+    if (mobiles.error) back(from, mobiles.error, true);
+    c.mobile_accounts = JSON.stringify(mobiles.list);
+  }
   const keys = Object.keys(c);
-  const existing = await one('SELECT id FROM companies WHERE owner_id = $1', [user.id]);
-  if (existing) {
+  if (existing && keys.length) {
     await q(`UPDATE companies SET ${keys.map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE owner_id = $${keys.length + 1}`,
       [...Object.values(c), user.id]);
-  } else {
+  } else if (!existing) {
     await q(`INSERT INTO companies (owner_id, ${keys.join(', ')}) VALUES ($1, ${keys.map((_, i) => `$${i + 2}`).join(', ')})`,
       [user.id, ...Object.values(c)]);
   }
+  if (sections.includes('entreprise')) await saveLogo(fd, user.id, from);
   revalidatePath('/', 'layout');
-  if (from === '/parametres') back('/parametres', 'Informations enregistrées.');
+  if (inSettings) back(from, 'Modifications enregistrées.');
   back('/tableau-de-bord', 'Ton compte est prêt. Ajoute ton premier client, puis crée ta première facture.');
+}
+
+// Prénom et nom du compte (onglet Mon compte)
+export async function updateProfile(fd) {
+  const user = await auth.requireUser();
+  const firstName = text(fd, 'first_name', 60);
+  const lastName = text(fd, 'last_name', 60);
+  if (!firstName || !lastName) back('/parametres?onglet=compte', 'Indique ton prénom et ton nom.', true);
+  await q('UPDATE users SET first_name = $1, last_name = $2, name = $3 WHERE id = $4', [firstName, lastName, `${firstName} ${lastName}`, user.id]);
+  revalidatePath('/', 'layout');
+  back('/parametres?onglet=compte', 'Profil mis à jour.');
 }
 
 // ---------- Clients ----------
@@ -167,7 +254,7 @@ export async function updateClient(fd) {
   if (!c.name || !emailOk(c.email)) back(`/clients/${id}`, 'Indique le nom du client et une adresse e-mail valide.', true);
   await q('UPDATE clients SET name = $1, email = $2, phone = $3, address = $4 WHERE id = $5 AND company_id = $6',
     [c.name, c.email, c.phone, c.address, id, company.id]);
-  back('/clients', 'Client mis à jour.');
+  back(`/clients/${id}`, 'Client mis à jour.');
 }
 
 export async function deleteClient(fd) {
@@ -187,16 +274,35 @@ export async function saveInvoice(fd) {
   const intent = String(fd.get('intent'));
   let lines = [];
   try { lines = invoices.cleanLines(JSON.parse(String(fd.get('lines') || '[]'))); } catch { /* lignes invalides */ }
+  // Période travaillée : les heures de la ligne « période » sont recalculées ici, pas reprises du navigateur
+  let period = null;
+  try { period = cleanPeriod(JSON.parse(String(fd.get('period') || 'null'))); } catch { /* période invalide */ }
+  lines = lines
+    .map((l) => (l.kind !== 'period' ? l : period ? { ...l, quantity: periodHours(period), unit: 'heure(s)' } : { ...l, kind: 'service' }))
+    .filter((l) => l.quantity);
   const sendOn = intent === 'programmer' ? text(fd, 'send_on', 10) : '';
   if (intent === 'programmer' && !/^\d{4}-\d{2}-\d{2}$/.test(sendOn)) {
     back(id ? `/factures/${id}/modifier` : '/factures/nouvelle', 'Choisis la date d\'envoi.', true);
+  }
+
+  // Devise de la facture, et seconde devise facultative avec son taux (fixe pour € / F CFA, saisi sinon)
+  const currency = CURRENCIES[fd.get('currency')] ? String(fd.get('currency')) : company.currency;
+  const alt = CURRENCIES[fd.get('alt_currency')] && fd.get('alt_currency') !== currency ? String(fd.get('alt_currency')) : null;
+  const altRate = alt ? (fixedRate(currency, alt) ?? number(fd, 'alt_rate')) : null;
+  if (alt && !(altRate > 0)) {
+    back(id ? `/factures/${id}/modifier` : '/factures/nouvelle', `Indique le taux de change : 1 ${currency} = combien de ${alt} ?`, true);
   }
 
   let invoiceId;
   try {
     invoiceId = await invoices.saveDraft(company, {
       id, client_id: fd.get('client_id'), title: text(fd, 'title', 200), lines,
-      vat_rate: number(fd, 'vat_rate', { max: 100 }), notes: text(fd, 'notes', 1000), send_on: sendOn,
+      currency, alt_currency: alt, alt_rate: altRate,
+      vat_rate: number(fd, 'vat_rate', { max: 100 }),
+      withholding_rate: number(fd, 'withholding_rate', { max: 100 }),
+      withholding_label: text(fd, 'withholding_label', 80) || 'Retenue à la source',
+      period,
+      notes: text(fd, 'notes', 1000), send_on: sendOn,
     });
   } catch (err) {
     back(id ? `/factures/${id}/modifier` : '/factures/nouvelle', err.message, true);
@@ -215,8 +321,9 @@ export async function saveInvoice(fd) {
 export async function sendInvoiceNow(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
-  const exists = await one('SELECT id FROM invoices WHERE id = $1 AND company_id = $2', [id, company.id]);
+  const exists = await one('SELECT id, status FROM invoices WHERE id = $1 AND company_id = $2', [id, company.id]);
   if (!exists) back('/factures', 'Facture introuvable.', true);
+  if (['payee', 'annulee'].includes(exists.status)) back(`/factures/${id}`, 'Cette facture ne peut plus être envoyée.', true);
   const r = await invoices.sendInvoice(company, id);
   revalidatePath('/', 'layout');
   if (!r.ok) back(`/factures/${id}`, `L'envoi a échoué : ${r.error}`, true);
@@ -226,9 +333,48 @@ export async function sendInvoiceNow(fd) {
 export async function confirmInvoicePayment(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
-  await invoices.confirmPayment(company.id, id);
+  const notify = fd.get('notify') === 'on';
+  const r = await invoices.confirmPayment(company, id, {
+    paidOn: text(fd, 'paid_on', 10),
+    method: text(fd, 'method', 60),
+    reference: text(fd, 'reference', 120),
+    notify,
+  });
   revalidatePath('/', 'layout');
-  back(`/factures/${id}`, 'Paiement confirmé.');
+  if (!r.confirmed) back(`/factures/${id}`, 'Cette facture ne peut pas être marquée payée.', true);
+  if (r.skipped) back(`/factures/${id}`, "Facture marquée payée. Le client n'a pas été prévenu.");
+  if (!r.sent) back(`/factures/${id}`, `Facture marquée payée, mais la facture payée n'est pas partie : ${r.error}. Clique sur « Renvoyer la facture payée ».`, true);
+  back(`/factures/${id}`, `Facture marquée payée. La facture payée a été envoyée à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
+}
+
+export async function reopenPayment(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const row = await invoices.reopenInvoice(company, id);
+  revalidatePath('/', 'layout');
+  if (!row) back(`/factures/${id}`, "Cette facture n'est pas marquée payée.", true);
+  back(`/factures/${id}`, row.status === 'signalee' ? 'Facture remise en « paiement signalé, à vérifier ».' : 'Facture remise en attente de paiement.');
+}
+
+export async function resendReceipt(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const paid = await one(`SELECT id FROM invoices WHERE id = $1 AND company_id = $2 AND status = 'payee'`, [id, company.id]);
+  if (!paid) back(`/factures/${id}`, "Cette facture n'est pas encore payée.", true);
+  const r = await invoices.sendReceipt(company, id);
+  revalidatePath(`/factures/${id}`);
+  if (!r.sent) back(`/factures/${id}`, `Le reçu n'est pas parti : ${r.error}`, true);
+  back(`/factures/${id}`, `Facture payée renvoyée à ${r.invoice.client_email}.`);
+}
+
+export async function cancelInvoice(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const r = await invoices.cancelInvoice(company, id, text(fd, 'reason', 500));
+  revalidatePath('/', 'layout');
+  if (!r.cancelled) back(`/factures/${id}`, "Cette facture ne peut plus être annulée : le client a déjà signalé ou réglé son paiement.", true);
+  if (!r.sent) back(`/factures/${id}`, `Facture annulée, mais le client n'a pas pu être prévenu : ${r.error}`, true);
+  back(`/factures/${id}`, `Facture annulée. ${r.invoice.client_email} a été prévenu.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
 
 export async function deleteInvoice(fd) {
@@ -261,4 +407,16 @@ export async function declarePayment(fd) {
   await invoices.declarePayment(token, { reference, proofKey, proofName: file.name.slice(0, 200), proofMime: file.type });
   revalidatePath(page);
   redirect(page);
+}
+
+// Le client écrit à l'entreprise depuis la page de sa facture (message propre au bloc contact : ?contact=…)
+export async function contactCompany(fd) {
+  const token = text(fd, 'token', 100);
+  const page = `/f/${token}`;
+  const reply = (message, error = false) => redirect(`${page}?${error ? 'contact_erreur' : 'contact'}=${encodeURIComponent(message)}#contact`);
+  const body = text(fd, 'message', 2000);
+  if (body.length < 3) reply('Écrivez votre message.', true);
+  const r = await invoices.sendClientMessage(token, body);
+  if (!r.ok) reply(r.error, true);
+  reply(`Message envoyé à ${r.company.name}. La réponse arrivera à ${r.invoice.client_email}.`);
 }

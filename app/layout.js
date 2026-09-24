@@ -4,7 +4,7 @@ import './globals.css';
 const sans = Public_Sans({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata = {
-  title: { default: 'Factures & Paie', template: '%s · Factures & Paie' },
+  title: { default: 'FactPay', template: '%s · FactPay' },
   description: 'Factures et fiches de paie en ligne, en euros ou en francs CFA.',
 };
 

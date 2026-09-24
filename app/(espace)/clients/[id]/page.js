@@ -29,12 +29,13 @@ export default async function Page({ params, searchParams }) {
           <h2>Factures</h2>
           {invoices.length ? <InvoiceTable invoices={invoices} /> : <p className="empty">Aucune facture pour ce client.</p>}
         </section>
-        <section>
-          <h2>Coordonnées</h2>
+        <section id="modifier">
+          <h2>Modifier le client</h2>
+          <p className="hint">Les nouvelles coordonnées s'affichent aussi sur les factures déjà émises de ce client (page et PDF).</p>
           <form action={updateClient} className="stack">
             <input type="hidden" name="id" value={client.id} />
             <ClientFields c={client} />
-            <div><button>Enregistrer</button></div>
+            <div><button>Enregistrer les modifications</button></div>
           </form>
           {!invoices.length && (
             <form action={deleteClient} style={{ marginTop: 20 }}>

@@ -15,7 +15,7 @@ export default async function Page({ searchParams }) {
     <main className="narrow">
       <div className="page-head">
         <div>
-          <h1>Bienvenue, {user.name}</h1>
+          <h1>Bienvenue, {user.first_name || user.name}</h1>
           <p className="hint" style={{ marginTop: 8 }}>Ces informations apparaîtront sur tes factures. Seul le nom est obligatoire, tu pourras tout modifier plus tard dans les paramètres.</p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Logo from '@/components/Logo';
 import { redirect } from 'next/navigation';
 import Flash from '@/components/Flash';
 import { login } from '@/app/actions';
@@ -10,7 +11,7 @@ export default async function Page({ searchParams }) {
   if (await currentUser()) redirect('/tableau-de-bord');
   return (
     <main className="auth">
-      <Link href="/" className="logo">Factures &amp; Paie</Link>
+      <Link href="/" className="logo"><Logo height={48} priority /></Link>
       <div className="card">
         <h1>Connexion</h1>
         <p className="hint">Accède à tes factures.</p>

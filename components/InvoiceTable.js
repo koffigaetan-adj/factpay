@@ -24,7 +24,7 @@ export default function InvoiceTable({ invoices }) {
                   {i.issue_date ? frDate(i.issue_date) : i.send_on ? `Envoi le ${frDate(i.send_on)}` : '—'}
                   {i.due_date && !['payee'].includes(i.status) && <span className="sub">échéance {frDate(i.due_date)}</span>}
                 </td>
-                <td className="n">{money(i.total, i.currency)}</td>
+                <td className="n">{money(i.amount_due, i.currency)}</td>
                 <td><span className={`status ${st.cls}`}>{st.label}</span></td>
               </tr>
             );

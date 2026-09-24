@@ -6,6 +6,7 @@ import { createClient } from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { addDays, today } from '@/lib/dates';
+import { altOf } from '@/lib/money';
 
 export const metadata = { title: 'Nouvelle facture' };
 
@@ -24,10 +25,11 @@ export default async function Page({ searchParams }) {
         <InvoiceEditor
           clients={clients}
           invoice={sp.client ? { client_id: Number(sp.client) } : null}
-          currency={company.currency}
-          showAlt={company.show_alt_currency}
+          defaultCurrency={company.currency}
+          defaultAlt={company.show_alt_currency ? altOf(company.currency) : null}
           defaultVat={company.default_vat_rate}
           tomorrow={addDays(today(), 1)}
+          thisMonth={today().slice(0, 7)}
         />
       ) : (
         <section>
