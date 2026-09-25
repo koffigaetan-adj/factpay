@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Icon from '@/components/Icon';
 import { money } from '@/lib/money';
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
@@ -15,7 +16,12 @@ export default function YearReport({ report, year, years, basePath, exportHref }
         <nav className="tabs" aria-label="Année">
           {years.map((y) => <Link key={y} href={`${basePath}?annee=${y}`} aria-current={y === year ? 'page' : undefined}>{y}</Link>)}
         </nav>
-        {exportHref && <a className="button secondary" href={exportHref}>Exporter le récapitulatif (Excel)</a>}
+        {exportHref && (
+          <a className="button secondary" href={exportHref}>
+            <Icon name="download" size={16} />
+            Exporter le récapitulatif (Excel)
+          </a>
+        )}
       </div>
 
       <section>

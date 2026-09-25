@@ -12,6 +12,7 @@ import { listDocuments } from '@/lib/documents';
 import { DocumentForm, DocumentList } from '@/components/Documents';
 import Modal from '@/components/Modal';
 import SubmitButton from '@/components/SubmitButton';
+import Icon from '@/components/Icon';
 import { pubId, idFrom } from '@/lib/ids';
 
 export const metadata = { title: 'Client' };
@@ -28,7 +29,12 @@ export default async function Page({ params, searchParams }) {
     <>
       <div className="page-head">
         <div><BackButton href="/clients">Clients</BackButton><h1>{client.name}</h1></div>
-        <div className="actions"><Link className="button" href={`/factures/nouvelle?client=${pubId('client', client.id)}`}>Nouvelle facture</Link></div>
+        <div className="actions">
+          <Link className="button" href={`/factures/nouvelle?client=${pubId('client', client.id)}`}>
+            <Icon name="plus" size={16} />
+            Nouvelle facture
+          </Link>
+        </div>
       </div>
       <Flash searchParams={searchParams} />
       <div className="grid2">
@@ -42,12 +48,20 @@ export default async function Page({ params, searchParams }) {
           <form action={updateClient} className="stack">
             <input type="hidden" name="id" value={client.id} />
             <ClientFields c={client} />
-            <div><SubmitButton pendingText="Enregistrement...">Enregistrer les modifications</SubmitButton></div>
+            <div>
+              <SubmitButton pendingText="Enregistrement...">
+                <Icon name="save" size={15} />
+                Enregistrer les modifications
+              </SubmitButton>
+            </div>
           </form>
           {!invoices.length && (
             <form action={deleteClient} style={{ marginTop: 20 }}>
               <input type="hidden" name="id" value={client.id} />
-              <SubmitButton className="danger" pendingText="Suppression...">Supprimer ce client</SubmitButton>
+              <SubmitButton className="danger" pendingText="Suppression...">
+                <Icon name="trash" size={15} />
+                Supprimer ce client
+              </SubmitButton>
             </form>
           )}
         </section>
@@ -56,7 +70,7 @@ export default async function Page({ params, searchParams }) {
       <section id="documents">
         <div className="chart-head">
           <h2>Documents de ce client</h2>
-          <Modal label="Ajouter un document" title={`Ajouter un document pour ${client.name}`} buttonClass="secondary">
+          <Modal label="Ajouter un document" icon="plus" title={`Ajouter un document pour ${client.name}`} buttonClass="secondary">
             <DocumentForm clientId={client.id} />
           </Modal>
         </div>

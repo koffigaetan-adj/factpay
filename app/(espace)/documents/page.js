@@ -27,7 +27,7 @@ export default async function Page({ searchParams }) {
           <p className="hint" style={{ margin: '6px 0 0' }}>Contrats, bons de commande, attestations, papiers de l'entreprise : tout au même endroit, visible par toi seul.</p>
         </div>
         <div className="actions">
-          <Modal label="Ajouter un document" title="Ajouter un document">
+          <Modal label="Ajouter un document" icon="plus" title="Ajouter un document">
             <DocumentForm clients={clients} defaultClient={sp.client || ''} />
           </Modal>
         </div>

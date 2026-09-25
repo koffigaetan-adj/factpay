@@ -6,6 +6,7 @@ import { q } from '@/lib/db';
 import { money } from '@/lib/money';
 import ClientFields from '@/components/ClientFields';
 import Modal from '@/components/Modal';
+import Icon from '@/components/Icon';
 import { pubId } from '@/lib/ids';
 
 export const metadata = { title: 'Clients' };
@@ -22,10 +23,10 @@ export default async function Page({ searchParams }) {
       <div className="page-head">
         <h1>Clients</h1>
         <div className="actions">
-          <Modal label="Nouveau client" title="Nouveau client">
+          <Modal label="Nouveau client" icon="plus" title="Nouveau client">
             <form action={createClient} className="stack">
               <ClientFields />
-              <div className="form-actions"><button>Ajouter le client</button></div>
+              <div className="form-actions"><button><Icon name="plus" size={16} /> Ajouter le client</button></div>
             </form>
           </Modal>
         </div>
@@ -42,7 +43,12 @@ export default async function Page({ searchParams }) {
                       <td><Link className="row-link" href={`/clients/${pubId('client', c.id)}`}>{c.name}</Link><span className="sub">{c.email}</span></td>
                       <td className="n">{c.invoice_count}</td>
                       <td className="n">{money(c.open_total, company.currency)}</td>
-                      <td className="n"><Link className="button secondary small" href={`/clients/${pubId('client', c.id)}#modifier`}>Modifier</Link></td>
+                      <td className="n">
+                        <Link className="button secondary small" href={`/clients/${pubId('client', c.id)}#modifier`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Icon name="edit" size={13} />
+                          Modifier
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

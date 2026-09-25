@@ -16,6 +16,7 @@ import Icon from '@/components/Icon';
 import { requireCompany } from '@/lib/auth';
 import { one } from '@/lib/db';
 import { logoUrl } from '@/lib/url';
+import PushToggle from '@/components/PushToggle';
 
 export const metadata = { title: 'Paramètres' };
 
@@ -80,7 +81,7 @@ export default async function Page({ searchParams }) {
                   <label>Prénom<input name="first_name" required maxLength={60} defaultValue={profile.first_name} autoComplete="given-name" /></label>
                   <label>Nom<input name="last_name" required maxLength={60} defaultValue={profile.last_name} autoComplete="family-name" /></label>
                 </div>
-                <div><SubmitButton pendingText="Enregistrement...">Enregistrer</SubmitButton></div>
+                <div><SubmitButton pendingText="Enregistrement..."><Icon name="save" size={16} /> Enregistrer</SubmitButton></div>
               </form>
             </div>
           </section>
@@ -123,22 +124,30 @@ export default async function Page({ searchParams }) {
                 <ThemePicker current={theme} />
               </Modal>
             </div>
+            <div className="setting-row">
+              <div>
+                <strong>Notifications</strong>
+                <span className="sub">Paiement signalé, devis accepté... même appli fermée, sur cet appareil</span>
+              </div>
+              <PushToggle vapidPublicKey={process.env.VAPID_PUBLIC_KEY || ''} />
+            </div>
           </section>
 
           <section className="card danger-zone" style={{ padding: '24px' }}>
             <h3 style={{ marginTop: 0, color: 'inherit' }}>Supprimer le compte</h3>
             <p className="hint">Ton entreprise, tes clients, tes factures et tous tes fichiers (photo, logo, documents) seront effacés <strong>définitivement</strong>. Cette action est irréversible.</p>
-            <details className="cancel">
-              <summary className="neutral">Supprimer mon compte</summary>
-              <DeleteAccountForm />
-            </details>
+            <div>
+              <Modal label="Supprimer mon compte" icon="trash" title="Supprimer mon compte" buttonClass="danger">
+                <DeleteAccountForm />
+              </Modal>
+            </div>
           </section>
         </div>
       ) : (
         <form action={saveCompany} className="stack settings-form" key={tab}>
           <input type="hidden" name="from" value="parametres" />
           <CompanyFields c={{ ...company, logo_src: logoUrl(company) }} sections={[tab]} />
-          <div className="form-foot"><SubmitButton pendingText="Enregistrement...">Enregistrer</SubmitButton></div>
+          <div className="form-foot"><SubmitButton pendingText="Enregistrement..."><Icon name="save" size={16} /> Enregistrer</SubmitButton></div>
         </form>
       )}
         </div>

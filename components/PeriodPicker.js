@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { workedDays, offReason, isWeekend, describePeriod, periodHours } from '@/lib/period';
 import { holidayName, COUNTRIES } from '@/lib/holidays';
 import DatePicker from '@/components/DatePicker';
+import Icon from '@/components/Icon';
 import { decimalOnly } from '@/lib/numeric';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -44,11 +45,16 @@ export default function PeriodPicker({ value: p, onChange }) {
   return (
     <div className="period">
       <div className="seg" role="radiogroup" aria-label="Type de période">
-        {[['mois', 'Un mois entier'], ['periode', 'Du … au …'], ['jours', 'Jours au choix']].map(([m, label]) => (
-          <label key={m} className={p.mode === m ? 'on' : ''}>
+        {[
+          ['mois', 'Un mois entier', 'calendar'],
+          ['periode', 'Du … au …', 'calendar'],
+          ['jours', 'Jours au choix', 'check'],
+        ].map(([m, label, icon]) => (
+          <label key={m} className={p.mode === m ? 'on' : ''} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <input type="radio" name="period_mode" value={m} checked={p.mode === m}
               onChange={() => set(m === 'jours' ? { mode: m, dates: days } : { mode: m })} />
-            {label}
+            <Icon name={icon} size={15} />
+            <span>{label}</span>
           </label>
         ))}
       </div>
@@ -67,7 +73,11 @@ export default function PeriodPicker({ value: p, onChange }) {
               <DatePicker value={p.to} min={p.from || undefined} label="Dernier jour" onChange={(v) => set({ to: v })} /></div>
           </>
         )}
-        <label className="hpd">Heures par jour
+        <label className="hpd">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Icon name="clock" size={15} />
+            Heures par jour
+          </span>
           <input inputMode="decimal" value={p.hours_per_day} onChange={(e) => set({ hours_per_day: decimalOnly(e.target.value) })} />
         </label>
       </div>

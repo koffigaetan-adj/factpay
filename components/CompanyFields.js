@@ -5,9 +5,16 @@ import { CURRENCIES } from '@/lib/money';
 import { COUNTRIES, countryOf, localNumber, parseMobiles } from '@/lib/payment';
 import { BANKS } from '@/lib/providers';
 import LogoSelect from '@/components/LogoSelect';
+import Icon from '@/components/Icon';
 import { digitsOnly, decimalOnly, digitListOnly, phoneDigits, filterInput } from '@/lib/numeric';
 
 const row = (m = {}) => ({ key: Math.random(), operator: m.operator || '', other: '', number: m.number || '' });
+
+// Numéro déjà enregistré (avec ou sans indicatif) → juste les chiffres locaux, espacés pour la lecture
+const localDigits = (phone, countryCode) => {
+  const local = localNumber(phone, countryCode);
+  return (local || String(phone || '').replace(/\D/g, '')).replace(/(\d{2})(?=\d)/g, '$1 ');
+};
 
 // Préfixe de numérotation : lettres A à Z seulement, mises en majuscules pendant la frappe
 const prefixInput = (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); };
@@ -42,7 +49,7 @@ function MobileAccounts({ country, initial, legacy }) {
         );
       })}
       {rows.length < 6 && (
-        <div><button type="button" className="secondary small" onClick={() => setRows((rs) => [...rs, row()])}>Ajouter un numéro</button></div>
+        <div><button type="button" className="secondary small" onClick={() => setRows((rs) => [...rs, row()])}><Icon name="plus" size={14} /> Ajouter un numéro</button></div>
       )}
     </div>
   );
@@ -79,7 +86,13 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
                   {Object.entries(COUNTRIES).map(([code, x]) => <option key={code} value={code}>{x.name} (+{x.dial})</option>)}
                 </select>
               </label>
-              <label>Téléphone<input name="phone" defaultValue={c.phone} placeholder={`+${countryOf(country).dial} …`} autoComplete="tel" /></label>
+              <label>Téléphone
+                <span className="phone">
+                  <span className="dial">+{countryOf(country).dial}</span>
+                  <input key={country} name="phone" inputMode="tel" defaultValue={localDigits(c.phone, country)} onInput={filterInput(phoneDigits)}
+                    placeholder={'0'.repeat(countryOf(country).digits).replace(/(\d{2})(?=\d)/g, '$1 ')} autoComplete="tel" />
+                </span>
+              </label>
             </div>
             <label>E-mail affiché sur les factures<input name="email" type="email" defaultValue={c.email} /></label>
           </fieldset>

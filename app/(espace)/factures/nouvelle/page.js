@@ -9,6 +9,7 @@ import { q } from '@/lib/db';
 import { addDays, today } from '@/lib/dates';
 import { altOf } from '@/lib/money';
 import { idFrom } from '@/lib/ids';
+import { paymentItems } from '@/lib/payment';
 
 export const metadata = { title: 'Nouvelle facture' };
 
@@ -30,6 +31,7 @@ export default async function Page({ searchParams }) {
           defaultCurrency={company.currency}
           defaultAlt={company.show_alt_currency ? altOf(company.currency) : null}
           defaultVat={company.default_vat_rate}
+          availablePayMethods={paymentItems(company)}
           tomorrow={addDays(today(), 1)}
           thisMonth={today().slice(0, 7)}
         />

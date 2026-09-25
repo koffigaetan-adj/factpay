@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Flash from '@/components/Flash';
 import InvoiceTable from '@/components/InvoiceTable';
+import Icon from '@/components/Icon';
 import { requireCompany } from '@/lib/auth';
 import { listInvoices } from '@/lib/invoices';
 
@@ -28,7 +29,12 @@ export default async function Page({ searchParams }) {
           <h1>Devis</h1>
           <p className="hint" style={{ margin: '6px 0 0' }}>Ton client l'accepte en ligne, puis tu le transformes en facture en un clic.</p>
         </div>
-        <div className="actions"><Link className="button" href="/devis/nouveau">Nouveau devis</Link></div>
+        <div className="actions">
+          <Link className="button" href="/devis/nouveau">
+            <Icon name="plus" size={16} />
+            Nouveau devis
+          </Link>
+        </div>
       </div>
       <Flash searchParams={searchParams} />
       <nav className="tabs" aria-label="Filtrer les devis">

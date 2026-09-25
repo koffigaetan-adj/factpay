@@ -18,8 +18,8 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const theme = (await cookies()).get('theme')?.value;
   return (
-    <html lang="fr" className={sans.variable} data-theme={theme === 'auto' ? undefined : theme === 'dark' ? 'dark' : 'light'}>
-      <body>{children}</body>
+    <html lang="fr" className={sans.variable} data-theme={theme === 'auto' ? undefined : theme === 'dark' ? 'dark' : 'light'} suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

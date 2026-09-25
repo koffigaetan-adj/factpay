@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
 import Icon from '@/components/Icon';
+import NotificationBell from '@/components/NotificationBell';
 import { logout } from '@/app/actions';
 
 
@@ -24,7 +25,7 @@ const MANAGEMENT = [
 
 // Espace connecté : barre latérale à gauche, réductible aux seules icônes (choix mémorisé dans un cookie),
 // et menu coulissant sur téléphone.
-export default function AppShell({ companyName, userName, email, avatarUrl = null, initialCollapsed = false, children }) {
+export default function AppShell({ companyName, userName, email, avatarUrl = null, initialCollapsed = false, initialUnread = 0, children }) {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [open, setOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function AppShell({ companyName, userName, email, avatarUrl = nul
           <Icon name="menu" size={22} />
         </button>
         <Link href="/tableau-de-bord" className="mobile-brand"><Logo height={26} /><span>{companyName}</span></Link>
+        <NotificationBell initialUnread={initialUnread} />
       </div>
 
       <aside className="sidebar" aria-label="Menu principal">
@@ -62,7 +64,7 @@ export default function AppShell({ companyName, userName, email, avatarUrl = nul
 
         <div className="sb-top">
           <Link href="/tableau-de-bord" className="sb-brand">
-            <Logo height={30} />
+            <Logo height={28} />
             <span className="sb-brand-divider sb-label" aria-hidden="true"></span>
             <span className="sb-label sb-company">{companyName}</span>
           </Link>
@@ -101,6 +103,9 @@ export default function AppShell({ companyName, userName, email, avatarUrl = nul
       </aside>
 
       <div className="sb-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />
+      <header className="desktop-topbar">
+        <NotificationBell initialUnread={initialUnread} />
+      </header>
       <main>{children}</main>
     </div>
   );

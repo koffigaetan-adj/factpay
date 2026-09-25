@@ -7,6 +7,7 @@ import PeriodPicker, { newPeriod } from '@/components/PeriodPicker';
 import { saveInvoice } from '@/app/actions';
 import SubmitButton from '@/components/SubmitButton';
 import Icon from '@/components/Icon';
+import BrandBadge from '@/components/BrandBadge';
 import ScheduleField from '@/components/ScheduleField';
 import { decimalOnly } from '@/lib/numeric';
 
@@ -18,8 +19,10 @@ const periodLine = () => ({ key: key(), kind: 'period', description: 'Prestation
 const toNumber = (v) => Number(String(v).replace(',', '.')) || 0;
 const hoursLabel = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
 
-export default function InvoiceEditor({ clients, invoice, defaultCurrency, defaultAlt, defaultVat, tomorrow, thisMonth, docType = 'facture' }) {
+export default function InvoiceEditor({ clients, invoice, defaultCurrency, defaultAlt, defaultVat, availablePayMethods = [], tomorrow, thisMonth, docType = 'facture' }) {
   const quote = (invoice?.doc_type || docType) === 'devis';
+  const initialSelectedPay = invoice?.payment_methods ? (() => { try { return JSON.parse(invoice.payment_methods); } catch { return null; } })() : null;
+  const [selectedPayMethods, setSelectedPayMethods] = useState(() => initialSelectedPay ?? availablePayMethods.map((m) => m.id));
   // Facture déjà émise (numéro attribué) qu'on corrige : un seul bouton, pas de re-programmation ni de renvoi
   const alreadyIssued = !!invoice?.number;
   const [lines, setLines] = useState(() => (invoice?.lines?.length
@@ -38,6 +41,7 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
   const [manualRate, setManualRate] = useState(invoice?.alt_rate && !fixedRate(invoice.currency, invoice.alt_currency) ? String(invoice.alt_rate) : '');
   // « Programmer l'envoi » fait apparaître la date ; les autres boutons envoient le formulaire directement
   const [scheduling, setScheduling] = useState(!!invoice?.send_on);
+  const [formError, setFormError] = useState('');
 
   const update = (k, field, value) => setLines((ls) => ls.map((l) => (l.key === k ? { ...l, [field]: value } : l)));
   const remove = (k) => setLines((ls) => ls.filter((l) => l.key !== k));
@@ -95,13 +99,36 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
   };
 
 
+  // Le client et au moins une ligne sont toujours obligatoires, même pour un brouillon (le bouton
+  // « Enregistrer en brouillon » saute exprès les autres vérifications du navigateur — taux de
+  // change, date d'envoi — pour ne pas bloquer un brouillon incomplet). Sans ce contrôle, un clic
+  // sans client choisi partait quand même vers le serveur, qui refusait et rechargeait la page à
+  // vide : tout ce qui avait été tapé disparaissait.
+  const handleSubmit = (e) => {
+    const clientField = e.currentTarget.elements.namedItem('client_id');
+    if (!clientField.value) {
+      e.preventDefault();
+      setFormError('Choisis un client avant d\'enregistrer.');
+      clientField.reportValidity();
+      clientField.focus();
+      return;
+    }
+    if (!numeric.some((l) => l.description && l.quantity)) {
+      e.preventDefault();
+      setFormError('Ajoute au moins une ligne avec une description et une quantité.');
+      return;
+    }
+    setFormError('');
+  };
+
   return (
-    <form action={saveInvoice} className="stack">
+    <form action={saveInvoice} className="stack" onSubmit={handleSubmit}>
       {invoice?.id && <input type="hidden" name="id" value={invoice.id} />}
       <input type="hidden" name="doc_type" value={quote ? 'devis' : 'facture'} />
       <input type="hidden" name="lines" value={JSON.stringify(numeric.map(({ key: _, ...l }) => l))} />
       <input type="hidden" name="period" value={hasPeriod && period ? JSON.stringify(period) : ''} />
       <input type="hidden" name="withholding_rate" value={whRate} />
+      <input type="hidden" name="payment_methods" value={JSON.stringify(selectedPayMethods)} />
 
       <section className="stack">
         <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -216,8 +243,14 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
           </table>
         </div>
         <div className="line-actions">
-          <button type="button" className="secondary" onClick={() => setLines((ls) => [...ls, emptyLine()])}>Ajouter une ligne</button>
-          <button type="button" className="secondary" onClick={() => setLines((ls) => [...ls, primeLine()])}>Ajouter une prime</button>
+          <button type="button" className="secondary" onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+            <Icon name="plus" size={15} />
+            Ajouter une ligne
+          </button>
+          <button type="button" className="secondary" onClick={() => setLines((ls) => [...ls, primeLine()])}>
+            <Icon name="plus" size={15} />
+            Ajouter une prime
+          </button>
         </div>
 
         <div className="sum-wrapper">
@@ -271,6 +304,50 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
         </div>
       </section>
 
+      {!quote && availablePayMethods.length > 0 && (
+        <section className="stack">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <Icon name="invoice" /> Moyens de paiement à afficher
+            </h2>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '13px' }}>
+              <button type="button" className="link" onClick={() => setSelectedPayMethods(availablePayMethods.map((m) => m.id))}>Tout cocher</button>
+              <button type="button" className="link" onClick={() => setSelectedPayMethods([])}>Tout décocher</button>
+            </div>
+          </div>
+          <p className="help" style={{ margin: 0 }}>
+            Choisis les moyens de paiement que tu souhaites indiquer sur cette facture. Par défaut, tous tes moyens enregistrés sont activés.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '10px', marginTop: '6px' }}>
+            {availablePayMethods.map((m) => {
+              const isChecked = selectedPayMethods.includes(m.id);
+              return (
+                <label key={m.id} className="check" style={{ margin: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedPayMethods((prev) => [...prev, m.id]);
+                      } else {
+                        setSelectedPayMethods((prev) => prev.filter((id) => id !== m.id));
+                      }
+                    }}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                    <BrandBadge name={m.brand} size={24} />
+                    <div style={{ minWidth: 0 }}>
+                      <strong style={{ display: 'block', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</strong>
+                      <span className="sub" style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.value}</span>
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="stack">
         <label><span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '16px', marginBottom: '8px' }}><Icon name="documents" size={20} /> Note pour le client</span> <span className="help">facultatif, imprimée sur la facture</span>
           <textarea name="notes" rows={2} maxLength={1000} defaultValue={invoice?.notes} style={{ marginTop: '4px' }} />
@@ -285,24 +362,42 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
             </div>
             <ScheduleField initial={invoice?.send_on || ''} />
             <div className="line-actions">
-              <SubmitButton name="intent" value="programmer" pendingText="Programmation...">Programmer l'envoi</SubmitButton>
+              <SubmitButton name="intent" value="programmer" pendingText="Programmation...">
+                <Icon name="clock" size={15} />
+                Programmer l'envoi
+              </SubmitButton>
               <button type="button" className="link" onClick={() => setScheduling(false)}>Annuler</button>
             </div>
           </div>
         )}
+        {formError && <p className="err" role="alert" style={{ margin: 0 }}>{formError}</p>}
         {alreadyIssued ? (
           <>
             <div className="form-actions">
-              <SubmitButton name="intent" value="brouillon" pendingText="Enregistrement...">Enregistrer les modifications</SubmitButton>
+              <SubmitButton name="intent" value="brouillon" pendingText="Enregistrement...">
+                <Icon name="save" size={15} />
+                Enregistrer les modifications
+              </SubmitButton>
             </div>
             <p className="help" style={{ margin: 0 }}>{(quote ? 'Ce devis' : 'Cette facture')} garde son numéro : le client ne reçoit rien automatiquement. Utilise « Renvoyer au client » sur sa page si tu veux lui transmettre la version corrigée.</p>
           </>
         ) : (
           <>
             <div className="form-actions">
-              <SubmitButton name="intent" value="brouillon" className="secondary" formNoValidate pendingText="Brouillon...">Enregistrer en brouillon</SubmitButton>
-              {!quote && !scheduling && <button type="button" className="secondary" onClick={() => setScheduling(true)}>Programmer l'envoi…</button>}
-              <SubmitButton name="intent" value="envoyer" pendingText="Envoi...">{quote ? 'Envoyer le devis au client' : 'Envoyer au client'}</SubmitButton>
+              <SubmitButton name="intent" value="brouillon" className="secondary" formNoValidate pendingText="Brouillon...">
+                <Icon name="save" size={15} />
+                Enregistrer en brouillon
+              </SubmitButton>
+              {!quote && !scheduling && (
+                <button type="button" className="secondary" onClick={() => setScheduling(true)}>
+                  <Icon name="calendar" size={15} />
+                  Programmer l'envoi…
+                </button>
+              )}
+              <SubmitButton name="intent" value="envoyer" pendingText="Envoi...">
+                <Icon name="send" size={15} />
+                {quote ? 'Envoyer le devis au client' : 'Envoyer au client'}
+              </SubmitButton>
             </div>
             <p className="help" style={{ margin: 0 }}>{quote
               ? "Envoyer : ton client reçoit le PDF et un lien pour accepter ou refuser le devis."

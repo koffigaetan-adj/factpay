@@ -2,6 +2,7 @@ import { uploadDocument, deleteDocument } from '@/app/actions';
 import { CATEGORIES, badgeOf, sizeLabel, expiryState } from '@/lib/documents';
 import { frDate } from '@/lib/dates';
 import DatePicker from '@/components/DatePicker';
+import Icon from '@/components/Icon';
 import { pubId } from '@/lib/ids';
 
 // Formulaire d'ajout. clientId : document rattaché d'office à ce client (page client).
@@ -34,7 +35,7 @@ export function DocumentForm({ clients = [], clientId = null, defaultClient = ''
         <div className="field"><span className="field-title">Échéance <span className="help">fin de contrat, validité…</span></span><DatePicker name="expires_on" label="Échéance" /></div>
       </div>
       <label>Note <span className="help">facultatif</span><textarea name="notes" rows={2} maxLength={500} /></label>
-      <div><button>Ajouter le document</button></div>
+      <div><button><Icon name="plus" size={16} /> Ajouter le document</button></div>
     </form>
   );
 }
@@ -67,7 +68,7 @@ export function DocumentList({ docs, showClient = true, clientId = null }) {
             <form action={deleteDocument}>
               <input type="hidden" name="id" value={d.id} />
               {clientId && <><input type="hidden" name="from" value="client" /><input type="hidden" name="client_id" value={clientId} /></>}
-              <button className="remove" aria-label={`Supprimer ${d.title}`} title="Supprimer">×</button>
+              <button className="remove" aria-label={`Supprimer ${d.title}`} title="Supprimer"><Icon name="trash" size={14} /></button>
             </form>
           </li>
         );

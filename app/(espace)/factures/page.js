@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Flash from '@/components/Flash';
 import InvoiceTable from '@/components/InvoiceTable';
+import Icon from '@/components/Icon';
 import { requireCompany } from '@/lib/auth';
 import { listInvoices } from '@/lib/invoices';
 import { today } from '@/lib/dates';
@@ -28,8 +29,14 @@ export default async function Page({ searchParams }) {
       <div className="page-head">
         <h1>Factures</h1>
         <div className="actions">
-          <a className="button secondary" href={`/factures/export?annee=${new Date().getUTCFullYear()}`}>Exporter {new Date().getUTCFullYear()} (Excel)</a>
-          <Link className="button" href="/factures/nouvelle">Nouvelle facture</Link>
+          <a className="button secondary" href={`/factures/export?annee=${new Date().getUTCFullYear()}`}>
+            <Icon name="download" size={16} />
+            Exporter {new Date().getUTCFullYear()} (Excel)
+          </a>
+          <Link className="button" href="/factures/nouvelle">
+            <Icon name="plus" size={16} />
+            Nouvelle facture
+          </Link>
         </div>
       </div>
       <Flash searchParams={searchParams} />

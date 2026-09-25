@@ -17,7 +17,8 @@ import { passwordProblem } from '@/lib/password';
 import { cleanPeriod, periodHours } from '@/lib/period';
 import * as documents from '@/lib/documents';
 import * as accountant from '@/lib/accountant';
-import { COUNTRIES, cleanMobiles } from '@/lib/payment';
+import { listNotifications, markAllRead } from '@/lib/notifications';
+import { COUNTRIES, cleanMobiles, localNumber, formatNumber } from '@/lib/payment';
 import { AUTH_APPS } from '@/lib/authenticators';
 import { pubId } from '@/lib/ids';
 import { signFlash } from '@/lib/flash';
@@ -34,7 +35,7 @@ function back(path, message, error = false) {
   redirect(`${path}${sep}${kind}=${encodeURIComponent(message)}&s=${signFlash(kind, message)}`);
 }
 
-const text = (fd, key, max = 300) => String(fd.get(key) ?? '').trim().slice(0, max);
+const text = (fd, key, max = 300) => String(fd.get(key) ?? '').replace(/Ð/g, '').trim().slice(0, max);
 const number = (fd, key, { min = 0, max = Infinity, fallback = 0 } = {}) => {
   const n = Number(String(fd.get(key) ?? '').replace(',', '.'));
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
@@ -385,6 +386,12 @@ export async function saveCompany(fd) {
   const from = inSettings ? `/parametres?onglet=${sections[0] || 'entreprise'}` : '/bienvenue';
   const existing = await one('SELECT id, country FROM companies WHERE owner_id = $1', [user.id]);
   if ((sections.includes('entreprise') || !existing) && !c.name) back(from, "Le nom de l'entreprise est obligatoire.", true);
+  if (sections.includes('entreprise') && c.phone) {
+    // Le champ n'affiche que les chiffres locaux (l'indicatif est à côté) : on les recompose ici,
+    // pour garder le même format qu'avant (« +228 XX XX XX XX ») partout où le numéro est affiché.
+    const local = localNumber(c.phone, c.country);
+    c.phone = local ? formatNumber(local, c.country) : c.phone;
+  }
   if (sections.includes('paiement')) {
     let rawMobiles = [];
     try { rawMobiles = JSON.parse(String(fd.get('mobile_accounts') || '[]')); } catch { /* liste invalide */ }
@@ -570,6 +577,17 @@ export async function saveInvoice(fd) {
     back(formPath, `Indique le taux de change : 1 ${currency} = combien de ${alt} ?`, true);
   }
 
+  let paymentMethods = null;
+  const pmRaw = fd.get('payment_methods');
+  if (pmRaw !== null && pmRaw !== undefined && typeof pmRaw === 'string') {
+    try {
+      const parsed = JSON.parse(pmRaw);
+      if (Array.isArray(parsed)) {
+        paymentMethods = JSON.stringify(parsed.filter((x) => typeof x === 'string').map((s) => s.slice(0, 100)).slice(0, 20));
+      }
+    } catch { /* invalide */ }
+  }
+
   let invoiceId;
   try {
     invoiceId = await invoices.saveDraft(company, {
@@ -579,6 +597,7 @@ export async function saveInvoice(fd) {
       withholding_rate: number(fd, 'withholding_rate', { max: 100 }),
       withholding_label: text(fd, 'withholding_label', 80) || 'Retenue à la source',
       period,
+      payment_methods: paymentMethods,
       notes: text(fd, 'notes', 1000), send_on: sendOn, send_tz: sendTz, doc_type: docType,
     });
   } catch (err) {
@@ -801,4 +820,39 @@ export async function revokeAccountantAccess() {
   const { company } = await auth.requireCompany();
   await accountant.revokeAccountantLink(company.id);
   back('/parametres?onglet=comptable', "Lien désactivé : ton comptable n'a plus accès.");
+}
+
+// ---------- Notifications push ----------
+// Appelées directement en JavaScript (pas par un <form>) depuis PushToggle : pas de redirection,
+// juste un enregistrement ou une suppression en base.
+
+export async function subscribePush(fd) {
+  const user = await auth.requireUser();
+  let sub;
+  try { sub = JSON.parse(String(fd.get('subscription') || '')); } catch { return { ok: false }; }
+  if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) return { ok: false };
+  await q(`INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4)
+    ON CONFLICT (endpoint) DO UPDATE SET user_id = $1, p256dh = $3, auth = $4`,
+    [user.id, sub.endpoint, sub.keys.p256dh, sub.keys.auth]);
+  return { ok: true };
+}
+
+export async function unsubscribePush(fd) {
+  const user = await auth.requireUser();
+  const endpoint = text(fd, 'endpoint', 500);
+  if (endpoint) await q('DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2', [user.id, endpoint]);
+  return { ok: true };
+}
+
+// ---------- La cloche de notifications ----------
+// Appelées en JavaScript direct depuis NotificationBell (pas de <form>, pas de redirection).
+
+export async function listMyNotifications() {
+  const user = await auth.requireUser();
+  return listNotifications(user.id);
+}
+
+export async function markNotificationsRead() {
+  const user = await auth.requireUser();
+  await markAllRead(user.id);
 }

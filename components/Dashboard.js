@@ -5,7 +5,8 @@ import { money, moneyAlt, round2, roundFor, fixedRate } from '@/lib/money';
 import { today, frDate, frDateTime } from '@/lib/dates';
 import { pubId } from '@/lib/ids';
 
-const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+const MONTHS_FULL = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
 // Graduation « ronde » de l'axe : 1, 2 ou 5 × une puissance de 10
 function niceMax(v) {
@@ -50,7 +51,7 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
   const net = cashed - reserve - vatDue;
 
   // Encaissé par mois (date de confirmation du paiement)
-  const byMonth = MONTHS.map((_, m) => sum(paidYear.filter((i) => new Date(i.confirmed_at).getUTCMonth() === m), 'amount_due'));
+  const byMonth = MONTHS_SHORT.map((_, m) => sum(paidYear.filter((i) => new Date(i.confirmed_at).getUTCMonth() === m), 'amount_due'));
   const top = niceMax(Math.max(...byMonth));
   const ticks = [0, top / 2, top];
   const thisMonth = new Date().getUTCMonth();
@@ -77,7 +78,12 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
           <h1>Bonjour {firstName}</h1>
           <p className="hint" style={{ margin: '6px 0 0' }}>{frDate(now)} · {company.name}</p>
         </div>
-        <div className="actions"><Link className="button" href="/factures/nouvelle">Nouvelle facture</Link></div>
+        <div className="actions">
+          <Link className="button" href="/factures/nouvelle">
+            <Icon name="plus" size={16} />
+            Nouvelle facture
+          </Link>
+        </div>
       </div>
       {flash}
 
@@ -85,7 +91,10 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
         <section className="start">
           <h2>Pour commencer</h2>
           <p className="hint">Ajoute ton premier client, puis crée ta première facture.</p>
-          <Link className="button" href="/clients">Ajouter un client</Link>
+          <Link className="button" href="/clients">
+            <Icon name="plus" size={16} />
+            Ajouter un client
+          </Link>
         </section>
       )}
 
@@ -144,14 +153,20 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
             <div><dt><span className="status late">En retard</span></dt><dd>{money(sum(late, 'amount_due'), cur)}</dd></div>
           </dl>
           <div style={{ marginTop: '20px' }}>
-            <Link className="button secondary" href="/factures?filtre=attente">Voir les factures en attente</Link>
+            <Link className="button secondary" href="/factures?filtre=attente">
+              <Icon name="invoice" size={16} />
+              Voir les factures en attente
+            </Link>
           </div>
         </section>
 
         <section className="dash-chart" aria-labelledby="chart-title">
           <div className="chart-head">
-            <h2 id="chart-title">Encaissé par mois en {year}</h2>
-            <span className="muted">Total {money(cashed, cur)}</span>
+            <div>
+              <h2 id="chart-title">Encaissé par mois en {year}</h2>
+              <span className="sub" style={{ marginTop: '4px' }}>Date de confirmation de chaque paiement</span>
+            </div>
+            <span className="muted" style={{ fontWeight: '600', fontSize: '15px' }}>Total {money(cashed, cur)}</span>
           </div>
           <div className="bars" role="img" aria-label={`Montants encaissés chaque mois en ${year}. Le détail est dans le tableau qui suit.`}>
             <div className="bars-axis" aria-hidden="true">
@@ -162,8 +177,8 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
               {byMonth.map((v, m) => (
                 <div key={m} className={`bar-col${m === thisMonth ? ' now' : ''}${m > thisMonth ? ' future' : ''}`} tabIndex={0}>
                   <span className="bar" style={{ height: `${(v / top) * 100}%` }} />
-                  <span className="tip" role="tooltip"><strong>{money(v, cur)}</strong>{MONTHS[m]} {year}</span>
-                  <span className="bar-label">{MONTHS[m]}</span>
+                  <span className="tip" role="tooltip"><strong>{money(v, cur)}</strong>{MONTHS_FULL[m]} {year}</span>
+                  <span className="bar-label">{MONTHS_SHORT[m]}</span>
                 </div>
               ))}
             </div>
@@ -171,7 +186,7 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
           <table className="sr">
             <caption>Encaissé par mois en {year}</caption>
             <thead><tr><th>Mois</th><th>Encaissé</th></tr></thead>
-            <tbody>{byMonth.map((v, m) => <tr key={m}><td>{MONTHS[m]}</td><td>{money(v, cur)}</td></tr>)}</tbody>
+            <tbody>{byMonth.map((v, m) => <tr key={m}><td>{MONTHS_FULL[m]}</td><td>{money(v, cur)}</td></tr>)}</tbody>
           </table>
           {skipped > 0 && <p className="help" style={{ margin: '12px 0 0' }}>{skipped} facture{skipped > 1 ? 's' : ''} dans une autre devise, sans taux vers {cur}, {skipped > 1 ? 'ne sont' : "n'est"} pas comptée{skipped > 1 ? 's' : ''} ici.</p>}
         </section>
