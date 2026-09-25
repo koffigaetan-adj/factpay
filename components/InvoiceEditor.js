@@ -20,6 +20,8 @@ const hoursLabel = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
 
 export default function InvoiceEditor({ clients, invoice, defaultCurrency, defaultAlt, defaultVat, tomorrow, thisMonth, docType = 'facture' }) {
   const quote = (invoice?.doc_type || docType) === 'devis';
+  // Facture déjà émise (numéro attribué) qu'on corrige : un seul bouton, pas de re-programmation ni de renvoi
+  const alreadyIssued = !!invoice?.number;
   const [lines, setLines] = useState(() => (invoice?.lines?.length
     ? invoice.lines.map((l) => ({ key: l.id, kind: l.kind || 'service', description: l.description, quantity: String(l.quantity), unit: l.unit, unit_price: String(l.unit_price) }))
     : [emptyLine()]));
@@ -274,7 +276,7 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
           <textarea name="notes" rows={2} maxLength={1000} defaultValue={invoice?.notes} style={{ marginTop: '4px' }} />
         </label>
 
-        {!quote && scheduling && (
+        {!quote && !alreadyIssued && scheduling && (
           <div className="schedule-box">
             <div className="schedule-head">
               <Icon name="calendar" size={18} />
@@ -288,14 +290,25 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
             </div>
           </div>
         )}
-        <div className="form-actions">
-          <SubmitButton name="intent" value="brouillon" className="secondary" formNoValidate pendingText="Brouillon...">Enregistrer en brouillon</SubmitButton>
-          {!quote && !scheduling && <button type="button" className="secondary" onClick={() => setScheduling(true)}>Programmer l'envoi…</button>}
-          <SubmitButton name="intent" value="envoyer" pendingText="Envoi...">{quote ? 'Envoyer le devis au client' : 'Envoyer au client'}</SubmitButton>
-        </div>
-        <p className="help" style={{ margin: 0 }}>{quote
-          ? "Envoyer : ton client reçoit le PDF et un lien pour accepter ou refuser le devis."
-          : "Envoyer : ton client reçoit le PDF et un lien pour payer ou signaler son paiement."}</p>
+        {alreadyIssued ? (
+          <>
+            <div className="form-actions">
+              <SubmitButton name="intent" value="brouillon" pendingText="Enregistrement...">Enregistrer les modifications</SubmitButton>
+            </div>
+            <p className="help" style={{ margin: 0 }}>{(quote ? 'Ce devis' : 'Cette facture')} garde son numéro : le client ne reçoit rien automatiquement. Utilise « Renvoyer au client » sur sa page si tu veux lui transmettre la version corrigée.</p>
+          </>
+        ) : (
+          <>
+            <div className="form-actions">
+              <SubmitButton name="intent" value="brouillon" className="secondary" formNoValidate pendingText="Brouillon...">Enregistrer en brouillon</SubmitButton>
+              {!quote && !scheduling && <button type="button" className="secondary" onClick={() => setScheduling(true)}>Programmer l'envoi…</button>}
+              <SubmitButton name="intent" value="envoyer" pendingText="Envoi...">{quote ? 'Envoyer le devis au client' : 'Envoyer au client'}</SubmitButton>
+            </div>
+            <p className="help" style={{ margin: 0 }}>{quote
+              ? "Envoyer : ton client reçoit le PDF et un lien pour accepter ou refuser le devis."
+              : "Envoyer : ton client reçoit le PDF et un lien pour payer ou signaler son paiement."}</p>
+          </>
+        )}
       </section>
     </form>
   );

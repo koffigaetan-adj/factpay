@@ -49,17 +49,28 @@ test('payée avec date et moyen, puis remise en attente', async () => {
   assert.equal((await inv.reopenInvoice(c, id)).status, 'envoyee');
 });
 
-test('annulation : avoir numéroté et PDF', async () => {
+test('annulation : avoir numéroté et PDF, client prévenu seulement si demandé', async () => {
   const id = await newInvoice();
   await inv.sendInvoice(c, id);
-  const r = await inv.cancelInvoice(c, id, 'Erreur');
-  assert.ok(r.cancelled);
+  // Par défaut (notify absent) : annulée et avoir émis, mais le client n'est pas prévenu
+  const skip = await inv.cancelInvoice(c, id, 'Erreur');
+  assert.ok(skip.cancelled);
+  assert.ok(skip.skipped, "sans notify, le client n'est pas prévenu");
+  assert.equal(skip.sent, false);
   const f = await inv.getInvoice(c.id, id);
   assert.match(f.credit_number, /^AV-FP\d{3,}-0001$/);
   const file = await pdf.creditNotePdf(f, c);
   assert.equal(file.subarray(0, 4).toString(), '%PDF');
   // Une facture payée ou annulée ne s'annule plus
   assert.equal((await inv.cancelInvoice(c, id, '')).cancelled, false);
+
+  // Avec notify: true, le client reçoit l'avoir par e-mail
+  const id2 = await newInvoice();
+  await inv.sendInvoice(c, id2);
+  const sent = await inv.cancelInvoice(c, id2, 'Erreur', { notify: true });
+  assert.ok(sent.cancelled);
+  assert.ok(sent.sent, 'avec notify: true, le client est prévenu');
+  assert.ok(!sent.skipped);
 });
 
 test('relances automatiques : paliers et écart minimum', async () => {
@@ -96,4 +107,30 @@ test('devis : numéro, acceptation par le client, transformation en facture', as
   assert.equal(d.status, 'convertie');
   assert.equal(f.doc_type, 'facture');
   assert.equal(f.source_quote_id, id);
+});
+
+test("modification d'une facture déjà émise : numéro et statut gardés, lignes et montants à jour", async () => {
+  const id = await newInvoice();
+  await inv.sendInvoice(c, id);
+  const before = await inv.getInvoice(c.id, id);
+  assert.equal(before.status, 'envoyee');
+
+  await inv.saveDraft(c, {
+    ...base, id, client_id: clientId,
+    lines: [{ kind: 'service', description: 'Dev (corrigé)', quantity: 12, unit: 'jour(s)', unit_price: 100000 }],
+  });
+  const after = await inv.getInvoice(c.id, id);
+  assert.equal(after.number, before.number, 'le numéro ne change pas');
+  assert.equal(after.status, 'envoyee', 'le statut ne revient pas en brouillon');
+  assert.equal(after.issue_date, before.issue_date, "la date d'émission ne change pas");
+  assert.equal(after.lines.length, 1);
+  assert.equal(after.lines[0].description, 'Dev (corrigé)');
+  assert.equal(after.total, 1200000);
+
+  // Une fois le paiement signalé ou confirmé, la facture n'est plus modifiable
+  await inv.confirmPayment(c, id, { notify: false });
+  await assert.rejects(
+    inv.saveDraft(c, { ...base, id, client_id: clientId, lines }),
+    /ne peut plus être modifié/,
+  );
 });

@@ -592,7 +592,8 @@ export async function saveInvoice(fd) {
     back(`/factures/${pubId('facture', invoiceId)}`, `${word} ${r.invoice.number} envoyé${docType === 'facture' ? 'e' : ''} à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
   }
   revalidatePath('/', 'layout');
-  back(`/factures/${pubId('facture', invoiceId)}`, intent === 'programmer' ? 'Envoi programmé.' : 'Brouillon enregistré.');
+  const savedMessage = intent === 'programmer' ? 'Envoi programmé.' : id ? 'Modifications enregistrées.' : 'Brouillon enregistré.';
+  back(`/factures/${pubId('facture', invoiceId)}`, savedMessage);
 }
 
 export async function sendInvoiceNow(fd) {
@@ -676,9 +677,11 @@ export async function resendReceipt(fd) {
 export async function cancelInvoice(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
-  const r = await invoices.cancelInvoice(company, id, text(fd, 'reason', 500));
+  const notify = fd.get('notify') === 'on';
+  const r = await invoices.cancelInvoice(company, id, text(fd, 'reason', 500), { notify });
   revalidatePath('/', 'layout');
   if (!r.cancelled) back(`/factures/${pubId('facture', id)}`, "Cette facture ne peut plus être annulée : le client a déjà signalé ou réglé son paiement.", true);
+  if (r.skipped) back(`/factures/${pubId('facture', id)}`, "Facture annulée et avoir émis. Le client n'a pas été prévenu.");
   if (!r.sent) back(`/factures/${pubId('facture', id)}`, `Facture annulée, mais le client n'a pas pu être prévenu : ${r.error}`, true);
   back(`/factures/${pubId('facture', id)}`, `Facture annulée. ${r.invoice.client_email} a été prévenu.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }

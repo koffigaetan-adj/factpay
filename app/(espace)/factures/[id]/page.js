@@ -7,7 +7,7 @@ import {
   remindNow, duplicateDocument, convertQuote, setRepeat,
 } from '@/app/actions';
 import { requireCompany } from '@/lib/auth';
-import { getInvoice, payUrl, EDITABLE, CANCELLABLE, listMessages, isQuote, reminderDays } from '@/lib/invoices';
+import { getInvoice, payUrl, EDITABLE, DRAFTLIKE, CANCELLABLE, listMessages, isQuote, reminderDays } from '@/lib/invoices';
 import { money, altMoney, num, rateLabel } from '@/lib/money';
 import { frDate, frDateTime, today } from '@/lib/dates';
 import DatePicker from '@/components/DatePicker';
@@ -33,6 +33,8 @@ export default async function Page({ params, searchParams }) {
   const st = statusOf(inv);
   const cur = inv.currency;
   const editable = EDITABLE.includes(inv.status);
+  const draftlike = DRAFTLIKE.includes(inv.status);
+  const neverSent = inv.status === 'emise';
   const hidden = <input type="hidden" name="id" value={inv.id} />;
   const messagesPromise = inv.number ? listMessages(inv.id) : Promise.resolve([]);
   const open = ['emise', 'envoyee'].includes(inv.status);
@@ -68,7 +70,7 @@ export default async function Page({ params, searchParams }) {
           </form>
           {canResend && (
             <form action={sendInvoiceNow} className="inline">{hidden}
-              <button className={editable ? '' : 'secondary'}>{editable ? 'Envoyer maintenant' : 'Renvoyer au client'}</button>
+              <button className={neverSent ? '' : 'secondary'}>{neverSent ? 'Envoyer maintenant' : 'Renvoyer au client'}</button>
             </form>
           )}
           {quote && ['emise', 'envoyee', 'acceptee'].includes(inv.status) && (
@@ -124,7 +126,7 @@ export default async function Page({ params, searchParams }) {
         <section>
           <h2>Suivi</h2>
           <dl className="stack" style={{ margin: 0 }}>
-            {inv.send_on && editable && <Fact label="Envoi automatique prévu">{frDateTime(inv.send_on, inv.send_tz)}</Fact>}
+            {inv.send_on && inv.status === 'programmee' && <Fact label="Envoi automatique prévu">{frDateTime(inv.send_on, inv.send_tz)}</Fact>}
             {inv.issue_date && <Fact label={quote ? 'Émis le' : 'Émise le'}>{frDate(inv.issue_date)}</Fact>}
             {inv.due_date && <Fact label={quote ? "Valable jusqu'au" : 'Échéance'}>{frDate(inv.due_date)}</Fact>}
             {inv.sent_at && <Fact label={quote ? 'Envoyé au client' : 'Envoyée au client'}>{frDate(inv.sent_at)}</Fact>}
@@ -157,7 +159,7 @@ export default async function Page({ params, searchParams }) {
               <a href={payUrl(inv)} target="_blank" rel="noopener" style={{ wordBreak: 'break-all' }}>{payUrl(inv)}</a>
             </p>
           )}
-          {editable && (
+          {draftlike && (
             <form action={deleteInvoice} style={{ marginTop: 20 }}>{hidden}<button className="danger">Supprimer le brouillon</button></form>
           )}
 
@@ -233,10 +235,11 @@ export default async function Page({ params, searchParams }) {
             <details className="cancel">
               <summary>Annuler cette facture</summary>
               <form action={cancelInvoice} className="stack">{hidden}
-                <p className="help" style={{ margin: 0 }}>Possible tant que le client n'a pas signalé de paiement. La facture garde son numéro, un avoir est émis pour l'annuler dans les comptes, et le client le reçoit par e-mail.</p>
-                <label>Motif <span className="help">facultatif, transmis au client</span>
+                <p className="help" style={{ margin: 0 }}>Possible tant que le client n'a pas signalé de paiement. La facture garde son numéro, et un avoir est émis pour l'annuler dans les comptes.</p>
+                <label>Motif <span className="help">facultatif, transmis au client si tu le préviens</span>
                   <textarea name="reason" rows={2} maxLength={500} placeholder="Ex. Erreur sur le nombre de jours, une facture corrigée va suivre." />
                 </label>
+                <label className="check"><input type="checkbox" name="notify" /><span>Prévenir le client par e-mail (avec l'avoir en pièce jointe)</span></label>
                 <div><button className="danger">Annuler la facture</button></div>
               </form>
             </details>
