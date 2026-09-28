@@ -195,11 +195,28 @@ export default function Dashboard({ user, company, invoices, quotes = [], expiri
       <section>
         <div className="chart-head">
           <h2>Dernières factures</h2>
-          {invoices.length > 6 && <Link href="/factures">Toutes les factures</Link>}
+          {invoices.length > 5 && (
+            <Link className="button secondary small" href="/factures" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              Toutes les factures
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
         </div>
-        {invoices.length
-          ? <InvoiceTable invoices={invoices.slice(0, 6)} />
-          : <p className="empty">Pas encore de facture. <Link href="/factures/nouvelle">Crée la première</Link>.</p>}
+        {invoices.length ? (
+          <>
+            <InvoiceTable invoices={invoices.slice(0, 5)} />
+            {invoices.length > 5 && (
+              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+                <Link className="button secondary" href="/factures" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  Voir plus de factures ({invoices.length})
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="empty">Pas encore de facture. <Link href="/factures/nouvelle">Crée la première</Link>.</p>
+        )}
       </section>
     </>
   );

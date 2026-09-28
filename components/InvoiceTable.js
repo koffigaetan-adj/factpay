@@ -4,12 +4,12 @@ import { frDate, frDateTime } from '@/lib/dates';
 import { statusOf } from '@/lib/status';
 import { pubId } from '@/lib/ids';
 
-export default function InvoiceTable({ invoices }) {
+export default function InvoiceTable({ invoices, received = false }) {
   return (
     <div className="scroll">
       <table>
         <thead>
-          <tr><th>Facture</th><th>Client</th><th>Date</th><th className="n">Montant</th><th>Statut</th></tr>
+          <tr><th>Facture</th><th>{received ? 'Émetteur' : 'Client'}</th><th>Date</th><th className="n">Montant</th><th>Statut</th></tr>
         </thead>
         <tbody>
           {invoices.map((i) => {
@@ -17,10 +17,14 @@ export default function InvoiceTable({ invoices }) {
             return (
               <tr key={i.id}>
                 <td>
-                  <Link className="row-link" href={`/factures/${pubId('facture', i.id)}`}>{i.number || 'Brouillon'}</Link>
+                  {received ? (
+                    <a className="row-link" href={`/f/${i.token}`} target="_blank" rel="noopener">{i.number}</a>
+                  ) : (
+                    <Link className="row-link" href={`/factures/${pubId('facture', i.id)}`}>{i.number || 'Brouillon'}</Link>
+                  )}
                   {i.title && <span className="sub">{i.title}</span>}
                 </td>
-                <td>{i.client_name}</td>
+                <td>{received ? i.issuer_name : i.client_name}</td>
                 <td>
                   {i.issue_date ? frDate(i.issue_date) : i.send_on ? `Envoi le ${frDateTime(i.send_on, i.send_tz)}` : '—'}
                   {i.due_date && !['payee'].includes(i.status) && <span className="sub">échéance {frDate(i.due_date)}</span>}

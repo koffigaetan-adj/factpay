@@ -182,14 +182,45 @@ a { color: var(--brand-text); }
 .sb-top-actions { display: flex; align-items: center; gap: 2px; flex: none; }
 
 /* Bouton rond sur le bord droit : réduire / agrandir */
-.sb-edge {
-  position: absolute; top: 24px; right: -14px; z-index: 2; width: 28px; height: 28px; padding: 0;
-  display: grid; place-items: center; border-radius: 50%; line-height: 0;
-  background: var(--paper); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 2px 6px rgba(10, 14, 20, .18);
+/* Bouton rond sur le bord droit : désactivé car la barre latérale reste toujours ouverte */
+.sb-edge { display: none !important; }
+
+/* Boutons de groupe avec sous-menus (Factures, Devis) */
+.sb-group-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 12px; border-radius: 8px; background: none; border: 0;
+  color: var(--sb-text); font-size: 14px; font-weight: 500; line-height: 20px;
+  cursor: pointer; text-align: left; transition: background 0.15s ease, color 0.15s ease;
 }
-.sb-edge:hover { background: var(--bg); color: var(--brand-text); }
-.sb-edge svg { transition: transform .2s ease; }
-.app.is-collapsed .sb-edge svg { transform: rotate(180deg); }
+.sb-group-toggle:hover { background: var(--sb-hover); color: var(--sb-hover-text); }
+.sb-group-toggle[aria-expanded="true"] { color: var(--sb-hover-text); }
+.sb-group-toggle-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sb-chevron { color: var(--sb-muted); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); flex: none; }
+.sb-group-toggle[aria-expanded="true"] .sb-chevron { transform: rotate(90deg); }
+
+/* Sous-menus (arborescence élégante avec filet vertical) */
+.sb-subnav {
+  display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px 20px;
+  padding-left: 12px; border-left: 1.5px solid var(--sb-border);
+}
+.sb-subnav a {
+  display: flex; align-items: center; padding: 7px 10px; border-radius: 6px;
+  color: var(--sb-muted); text-decoration: none; font-size: 13.5px; font-weight: 500; line-height: 18px;
+  transition: all 0.15s ease;
+}
+.sb-subnav a:hover { color: var(--sb-hover-text); background: var(--sb-hover); }
+.sb-subnav a[aria-current="page"] { color: #fff; background: var(--sb-active-bg); font-weight: 600; }
+/* Badges d'alerte / compteur dans la barre latérale */
+.sb-toggle-meta { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.sb-badge {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+  padding: 0 6px; border-radius: 10px; font-size: 11px; font-weight: 700; line-height: 1;
+  background: var(--brand); color: #fff; flex: none; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.sb-badge.warning { background: #D97706; color: #fff; }
+.sb-badge.accent { background: #2563EB; color: #fff; }
+.sb-badge.success { background: #059669; color: #fff; }
+
 
 .sb-new {
   display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 11px 12px; border-radius: 8px;
