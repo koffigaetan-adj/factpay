@@ -58,12 +58,12 @@ export default async function Home({ searchParams }) {
       <div className="site-top">
         <header className="site-head" style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px' }}>
           <Link href="/" aria-label="FactPay, accueil"><Logo height={44} priority /></Link>
-          <nav className="site-nav" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Link className="button secondary hide-xs" href="/portail/connexion" style={{ fontSize: '13.5px' }}>
-              Espace Salarié
+          <nav className="site-nav" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Link className="button secondary hide-xs" href="/portail/connexion" style={{ fontSize: '13.5px', background: '#F8FAFC' }}>
+              👤 Espace Salarié
             </Link>
             <Link className="button secondary" href="/connexion" style={{ fontSize: '13.5px' }}>
-              Connexion
+              Connexion Entreprise
             </Link>
             <Link className="button" href="/inscription" style={{ fontSize: '13.5px' }}>
               Créer un compte

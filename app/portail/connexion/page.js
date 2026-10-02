@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Flash from '@/components/Flash';
 import SubmitButton from '@/components/SubmitButton';
 import PasswordInput from '@/components/PasswordInput';
-import { loginPortalEmployeeAction } from '@/app/actions';
+import { loginPortalEmployeeAction, requestPortalMagicLinkAction } from '@/app/actions';
 
 export const metadata = {
   title: 'Connexion Espace Collaborateur · FactPay',
@@ -112,8 +112,54 @@ export default async function Page({ searchParams }) {
           </SubmitButton>
         </form>
 
-        <p style={{ fontSize: '12.5px', color: '#94A3B8', textAlign: 'center', marginTop: '24px', lineHeight: 1.5, marginBottom: 0 }}>
-          Première visite ? Utilisez le lien d'invitation envoyé par votre employeur pour activer votre espace.
+        <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #F1F5F9', textAlign: 'center' }}>
+          <details style={{ textAlign: 'left', fontSize: '13px', color: '#64748B' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 650, color: 'var(--brand)', textAlign: 'center', listStyle: 'none', userSelect: 'none' }}>
+              🔑 Mot de passe oublié ou premier accès ?
+            </summary>
+            <div style={{ marginTop: '14px', background: '#F8FAFC', padding: '16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+              <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#475569', lineHeight: 1.5 }}>
+                Indiquez votre adresse e-mail professionnelle pour recevoir immédiatement votre lien d'accès direct et sécurisé.
+              </p>
+              <form action={requestPortalMagicLinkAction} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="votre.email@entreprise.com"
+                  style={{
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13.5px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+                <SubmitButton
+                  pendingText="Envoi en cours..."
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 650,
+                    width: '100%',
+                    justifyContent: 'center',
+                    background: '#0F172A',
+                    borderColor: '#0F172A',
+                    color: '#FFFFFF',
+                  }}
+                >
+                  Recevoir mon lien d'accès par e-mail
+                </SubmitButton>
+              </form>
+            </div>
+          </details>
+        </div>
+
+        <p style={{ fontSize: '12.5px', color: '#94A3B8', textAlign: 'center', marginTop: '20px', lineHeight: 1.5, marginBottom: 0 }}>
+          Vous pouvez aussi utiliser directement le lien d'invitation envoyé par votre employeur.
         </p>
       </div>
 

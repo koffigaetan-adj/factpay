@@ -38,9 +38,8 @@ export default async function EmployeePortalPage({ params, searchParams }) {
     );
   }
 
-  // Étape obligatoire : le salarié doit définir son mot de passe pour activer son espace collaborateur
-  const needsPasswordSetup = !employee.portal_confirmed_at || !employee.portal_password_hash;
-  if (needsPasswordSetup) {
+  // Si demandé explicitement (?definir_mdp=1), proposer l'écran dédié de configuration de mot de passe
+  if (sp?.definir_mdp === '1' && (!employee.portal_confirmed_at || !employee.portal_password_hash)) {
     return (
       <PortalPasswordSetup
         employee={portalViewOf(employee)}

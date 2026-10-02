@@ -287,6 +287,23 @@ export default function PortalPasswordSetup({ employee, token, flash }) {
           >
             Activer mon espace collaborateur
           </SubmitButton>
+
+          <a
+            href={`/portail/${token}`}
+            style={{
+              display: 'block',
+              textAlign: 'center',
+              marginTop: '10px',
+              fontSize: '13px',
+              color: '#64748B',
+              textDecoration: 'none',
+              padding: '6px',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#0F172A'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#64748B'}
+          >
+            Passer cette étape et accéder à mon espace →
+          </a>
         </form>
 
         <p style={{

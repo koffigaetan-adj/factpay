@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { money } from '@/lib/money';
-import { MONTHS } from '@/lib/rh-constants';
+import { MONTHS, isPayslipEditable } from '@/lib/rh-constants';
 import Icon from '@/components/Icon';
 import { deletePayslipAction } from '@/app/actions';
 
@@ -96,20 +96,28 @@ export default function PayslipTable({ payslips, companyCurrency = 'XOF' }) {
                     <Link href={`/fiches-de-paie/${p.id}`} className="button secondary small">
                       Voir
                     </Link>
-                    {p.status !== 'paye' && (
-                      <form action={deletePayslipAction} style={{ display: 'inline' }}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <button
-                          type="submit"
-                          className="button danger small icon-only"
-                          title="Supprimer le bulletin"
-                          onClick={(e) => {
-                            if (!confirm(`Supprimer le bulletin ${p.number} ?`)) e.preventDefault();
-                          }}
-                        >
-                          <Icon name="trash" size={14} />
-                        </button>
-                      </form>
+                    {/* Le serveur ne supprime et ne modifie que les brouillons. Afficher
+                        « Supprimer » sur un bulletin validé promettait une suppression que la
+                        base refuse, et la validate seule bloquait sans raison apparente. */}
+                    {isPayslipEditable(p) && (
+                      <>
+                        <Link href={`/fiches-de-paie/${p.id}/modifier`} className="button secondary small">
+                          Modifier
+                        </Link>
+                        <form action={deletePayslipAction} style={{ display: 'inline' }}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <button
+                            type="submit"
+                            className="button danger small icon-only"
+                            title="Supprimer le bulletin"
+                            onClick={(e) => {
+                              if (!confirm(`Supprimer le bulletin ${p.number} ?`)) e.preventDefault();
+                            }}
+                          >
+                            <Icon name="trash" size={14} />
+                          </button>
+                        </form>
+                      </>
                     )}
                   </div>
                 </td>

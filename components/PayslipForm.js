@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { MONTHS, calculatePayslip, PAYMENT_METHODS } from '@/lib/rh-constants';
 import { savePayslipAction } from '@/app/actions';
 import { money } from '@/lib/money';
@@ -31,6 +32,28 @@ export default function PayslipForm({ employees, payslip = null, defaultEmployee
   const [otherDeductions, setOtherDeductions] = useState(payslip?.other_deductions ?? 0);
   const [cnssEmployerRate, setCnssEmployerRate] = useState(payslip?.cnss_employer_rate ?? 17.5);
 
+  // Les lignes libres : une prime exceptionnelle, un remboursement, une retenue. Le tableau
+  // ci-dessus garde les rubriques que la paie connaît tous les mois ; ces lignes, elles, sont
+  // ce qui arrive une fois par an. Chacune est explicitement un ajout ou une retenue, pour
+  // qu'on ne se demande jamais dans quel sens un montant a été saisi.
+  const [lines, setLines] = useState(() => (payslip?.lines ?? []).map((l) => ({
+    key: l.id ?? `${l.kind}-${l.label}`,
+    kind: l.kind === 'retenue' ? 'retenue' : 'ajout',
+    label: l.label ?? '',
+    amount: l.amount ?? 0,
+  })));
+
+  const addLine = (kind = 'ajout') => setLines((current) => [
+    ...current,
+    { key: `new-${current.length}-${kind}`, kind, label: '', amount: 0 },
+  ]);
+
+  const updateLine = (key, patch) => setLines((current) => current.map(
+    (line) => (line.key === key ? { ...line, ...patch } : line)
+  ));
+
+  const removeLine = (key) => setLines((current) => current.filter((line) => line.key !== key));
+
   const onEmployeeChange = (e) => {
     const id = e.target.value;
     setSelectedEmpId(id);
@@ -52,6 +75,7 @@ export default function PayslipForm({ employees, payslip = null, defaultEmployee
     salary_advances: salaryAdvances,
     other_deductions: otherDeductions,
     cnss_employer_rate: cnssEmployerRate,
+    lines,
   }, companyCurrency);
 
   return (
@@ -103,6 +127,18 @@ export default function PayslipForm({ employees, payslip = null, defaultEmployee
                 min="2000"
                 max="2100"
                 defaultValue={payslip?.period_year || now.getUTCFullYear()}
+              />
+            </div>
+
+            {/* Le champ manquait : le serveur remettait la date du jour à chaque sauvegarde,
+                y compris sur un bulletin émis le mois dernier. */}
+            <div className="field">
+              <label htmlFor="issue_date">Date d’émission</label>
+              <input
+                id="issue_date"
+                name="issue_date"
+                type="date"
+                defaultValue={payslip?.issue_date || ''}
               />
             </div>
           </div>
@@ -260,12 +296,147 @@ export default function PayslipForm({ employees, payslip = null, defaultEmployee
               onChange={(e) => setOtherDeductions(Number(e.target.value) || 0)}
             />
           </div>
+
+          <div className="field">
+            <label htmlFor="cnss_employer_rate">Taux CNSS Patronale (%)</label>
+            <input
+              id="cnss_employer_rate"
+              name="cnss_employer_rate"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={cnssEmployerRate}
+              onChange={(e) => setCnssEmployerRate(Number(e.target.value) || 0)}
+            />
+          </div>
         </div>
 
         <div style={{ background: 'var(--bg)', padding: '12px 16px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <strong>Total des Retenues :</strong>
           <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--late)' }}>− {money(calc.totalDeductions, companyCurrency)}</span>
         </div>
+      </div>
+
+      {/* Lignes libres. Elles viennent s'ajouter aux rubriques du dessus, sans les remplacer :
+          une prime de fin d'année se saisit ici, pas dans « Autres primes ». */}
+      <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap', marginBottom: '4px' }}>
+          <div>
+            <h2 style={{ fontSize: '16px' }}>4. Lignes complémentaires</h2>
+            <p className="hint" style={{ margin: '4px 0 0' }}>
+              Ce qui arrive une fois, pas tous les mois : prime exceptionnelle, remboursement
+              de frais, retenue pour casse. Un ajout majore le brut, une retenue diminue le net.
+            </p>
+          </div>
+          <div className="actions" style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={() => addLine('ajout')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Icon name="plus" size={14} /> Ajouter un ajout
+            </button>
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={() => addLine('retenue')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Icon name="percent" size={14} /> Ajouter une retenue
+            </button>
+          </div>
+        </div>
+
+        {lines.length === 0 ? (
+          <p className="empty" style={{ marginTop: '12px' }}>
+            Aucune ligne complémentaire. Le brut se compose uniquement des rubriques ci-dessus.
+          </p>
+        ) : (
+          <div className="scroll" style={{ marginTop: '16px' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '150px' }}>Sens</th>
+                  <th>Libellé</th>
+                  <th className="n" style={{ width: '160px' }}>Montant</th>
+                  <th className="n" style={{ width: '150px' }}>Effet</th>
+                  <th style={{ width: '48px' }}><span className="sr">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => (
+                  <tr key={line.key}>
+                    <td>
+                      <input type="hidden" name="line_kind" value={line.kind} />
+                      <select
+                        aria-label="Sens de la ligne"
+                        value={line.kind}
+                        onChange={(e) => updateLine(line.key, { kind: e.target.value })}
+                      >
+                        <option value="ajout">Ajout</option>
+                        <option value="retenue">Retenue</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        name="line_label"
+                        aria-label="Libellé de la ligne"
+                        placeholder="Prime de fin d'année…"
+                        maxLength={160}
+                        value={line.label}
+                        onChange={(e) => updateLine(line.key, { label: e.target.value })}
+                      />
+                    </td>
+                    <td className="n">
+                      <input
+                        name="line_amount"
+                        aria-label="Montant de la ligne"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={line.amount}
+                        onChange={(e) => updateLine(line.key, { amount: Number(e.target.value) || 0 })}
+                      />
+                    </td>
+                    <td className="n sub">
+                      {line.amount > 0 && (
+                        line.kind === 'ajout'
+                          ? `+ ${money(line.amount, companyCurrency)} au brut`
+                          : `− ${money(line.amount, companyCurrency)} sur le net`
+                      )}
+                    </td>
+                    <td className="n">
+                      <button
+                        type="button"
+                        className="button secondary small"
+                        onClick={() => removeLine(line.key)}
+                        aria-label="Supprimer la ligne"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Icon name="trash" size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {calc.extraGains > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+            <span className="sub">Ajouts repris dans le brut</span>
+            <span style={{ fontWeight: 700 }}>+ {money(calc.extraGains, companyCurrency)}</span>
+          </div>
+        )}
+        {calc.extraDeductions > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+            <span className="sub">Retenues reprises sur le net</span>
+            <span style={{ fontWeight: 700 }}>− {money(calc.extraDeductions, companyCurrency)}</span>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ padding: '20px', marginBottom: '24px', border: '2px solid var(--brand)', background: 'color-mix(in srgb, var(--brand) 4%, var(--paper))' }}>
@@ -284,7 +455,7 @@ export default function PayslipForm({ employees, payslip = null, defaultEmployee
       </div>
 
       <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>4. Règlement & Statut</h2>
+        <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>5. Règlement & Statut</h2>
         <div className="form-grid">
           <div className="field">
             <label htmlFor="status">Statut du bulletin</label>
@@ -349,6 +520,11 @@ export default function PayslipForm({ employees, payslip = null, defaultEmployee
           <Icon name="save" size={16} />
           {isEdit ? 'Mettre à jour le bulletin' : 'Créer le bulletin de paie'}
         </button>
+        {isEdit && (
+          <Link href={`/fiches-de-paie/${payslip.id}`} className="button secondary">
+            Annuler
+          </Link>
+        )}
       </div>
     </form>
   );

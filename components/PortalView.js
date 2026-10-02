@@ -608,6 +608,44 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
                 </p>
               </div>
 
+              {/* BANNIÈRE SÉCURITÉ / MOT DE PASSE (si non défini) */}
+              {!employee?.has_password && (
+                <div style={{
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  borderRadius: '16px',
+                  padding: '16px 20px',
+                  marginBottom: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  flexWrap: 'wrap',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#DBEAFE', color: '#2563EB', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name="lock" size={18} />
+                    </div>
+                    <div>
+                      <strong style={{ fontSize: '14px', color: '#1E40AF', display: 'block' }}>
+                        Sécurisez votre espace collaborateur
+                      </strong>
+                      <span style={{ fontSize: '13px', color: '#3B82F6' }}>
+                        Vous pouvez définir un mot de passe personnel pour vous reconnecter plus rapidement sans dépendre du lien.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(true)}
+                    className="button"
+                    style={{ fontSize: '13px', padding: '8px 16px', background: '#2563EB', borderColor: '#2563EB' }}
+                  >
+                    Définir mon mot de passe
+                  </button>
+                </div>
+              )}
+
               {/* ANNONCE D'ENTREPRISE (si publiée) */}
               {announcements.length > 0 && (
                 <div style={{

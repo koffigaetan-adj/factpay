@@ -1,6 +1,6 @@
 'use server';
 
-import { redirect } from 'next/navigation';
+import { redirect, unstable_rethrow } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { q, one } from '@/lib/db';
@@ -19,6 +19,7 @@ import * as documents from '@/lib/documents';
 import * as accountant from '@/lib/accountant';
 import * as employees from '@/lib/employees';
 import * as payroll from '@/lib/payroll';
+import { payslipLinesFromForm } from '@/lib/rh-constants';
 import * as leaves from '@/lib/leaves';
 import * as advances from '@/lib/advances';
 import * as expenses from '@/lib/expenses';
@@ -35,6 +36,15 @@ import { matchesType } from '@/lib/filetype';
 // Revient sur une page avec un message (?ok=… ou ?erreur=…), signé pour qu'un lien fabriqué à la
 // main (par exemple pour une arnaque à l'adresse « ?erreur=Compte suspendu, appelez… ») ne puisse
 // pas afficher un message qui n'a pas été produit par ce code.
+//
+// `redirect()` ne rend pas la main : Next lève une exception de contrôle porteuse d'un digest
+// « NEXT_REDIRECT ». Appelée depuis un `try`, cette exception est donc rattrapée par le `catch`
+// voisin, qui la Traitait comme une panne : le journal recevait « NEXT_REDIRECT », et surtout
+// l'utilisateur repartait sur « ?erreur=… » alors que son enregistrement venait de réussir.
+//
+// C'est pourquoi chaque `catch` appelle `unstable_rethrow(err)` avant de quoi que ce soit :
+// cette fonction relaîche à Next les exceptions de contrôle et laisse passer les vraies erreurs,
+// que le `catch` peut alors journaliser et signaler comme avant.
 function back(path, message, error = false) {
   const sep = path.includes('?') ? '&' : '?';
   const kind = error ? 'erreur' : 'ok';
@@ -82,6 +92,7 @@ export async function signup(fd) {
   try {
     await sendVerification({ id: user.id, email, first_name: firstName });
   } catch (err) {
+    unstable_rethrow(err);
     console.error('Lien de confirmation non envoyé :', err.message);
     back('/confirmer-email', "L'e-mail de confirmation n'a pas pu partir. Clique sur « Renvoyer le lien ».", true);
   }
@@ -97,6 +108,7 @@ export async function resendVerification() {
   try {
     await sendVerification(user);
   } catch (err) {
+    unstable_rethrow(err);
     back('/confirmer-email', `L'envoi a échoué : ${safeError(err)}`, true);
   }
   back('/confirmer-email', `Nouveau lien envoyé à ${user.email}.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
@@ -140,6 +152,7 @@ async function openSessionOrAsk2fa(user, then = '/tableau-de-bord') {
     try {
       await sendMail({ to: user.email, ...(await withImages(loginCodeEmail(user.first_name || user.name, emailCode))) });
     } catch (err) {
+      unstable_rethrow(err);
       back('/connexion/verification', `Le code n'a pas pu partir : ${safeError(err)}. Clique sur « Renvoyer le code ».`, true);
     }
   }
@@ -170,6 +183,7 @@ export async function resendLoginCode() {
   try {
     await sendMail({ to: ch.email, ...(await withImages(loginCodeEmail(ch.first_name || ch.name, code))) });
   } catch (err) {
+    unstable_rethrow(err);
     back('/connexion/verification', `Le code n'a pas pu partir : ${safeError(err)}`, true);
   }
   back('/connexion/verification', `Nouveau code envoyé à ${ch.email}.${mailTestMode() ? ' (mode test : code affiché dans la console)' : ''}`);
@@ -435,6 +449,7 @@ export async function requestEmailChange(fd) {
   try {
     await sendMail({ to: email, ...(await withImages(changeEmailEmail(user.first_name || user.name, `${appUrl()}/confirmer/${token}`))) });
   } catch (err) {
+    unstable_rethrow(err);
     back(tab, `Le lien n'a pas pu partir : ${safeError(err)}`, true);
   }
   back(tab, `Lien de confirmation envoyé à ${email}. Ton adresse changera quand tu l'auras ouvert.${mailTestMode() ? ' (mode test : lien affiché dans la console)' : ''}`);
@@ -607,6 +622,7 @@ export async function saveInvoice(fd) {
       notes: text(fd, 'notes', 1000), send_on: sendOn, send_tz: sendTz, doc_type: docType,
     });
   } catch (err) {
+    unstable_rethrow(err);
     back(formPath, err.message, true);
   }
 
@@ -923,6 +939,7 @@ export async function saveEmployeeAction(fd) {
 
     back(returnTo, successMsg);
   } catch (err) {
+    unstable_rethrow(err);
     back(returnTo, safeError(err), true);
   }
 }
@@ -939,6 +956,7 @@ export async function deleteEmployeeAction(fd) {
       back('/employes', 'Salarié supprimé.');
     }
   } catch (err) {
+    unstable_rethrow(err);
     back('/employes', safeError(err), true);
   }
 }
@@ -947,9 +965,14 @@ export async function deleteEmployeeAction(fd) {
 
 export async function savePayslipAction(fd) {
   const { company } = await auth.requireCompany();
+  const id = fd.get('id') ? Number(fd.get('id')) : null;
+  // En modification, une erreur doit renvoyer vers le formulaire qui a échoué, pas vers la
+  // liste : c'est là que se trouve la faute à corriger.
+  const backTo = id ? `/fiches-de-paie/${id}/modifier` : '/fiches-de-paie';
+
   try {
     const p = await payroll.savePayslip(company, {
-      id: fd.get('id') ? Number(fd.get('id')) : null,
+      id,
       employee_id: Number(fd.get('employee_id')),
       period_month: number(fd, 'period_month', { min: 1, max: 12 }),
       period_year: number(fd, 'period_year', { min: 2000, max: 2100 }),
@@ -970,11 +993,14 @@ export async function savePayslipAction(fd) {
       payment_method: text(fd, 'payment_method', 30),
       payment_reference: text(fd, 'payment_reference', 100),
       notes: text(fd, 'notes', 500),
+      lines: payslipLinesFromForm(fd),
     });
     revalidatePath('/fiches-de-paie');
+    revalidatePath('/', 'layout');
     back(`/fiches-de-paie/${p.id}`, `Bulletin ${p.number} enregistré.`);
   } catch (err) {
-    back('/fiches-de-paie', safeError(err), true);
+    unstable_rethrow(err);
+    back(backTo, safeError(err), true);
   }
 }
 
@@ -991,6 +1017,7 @@ export async function generateMonthlyPayslipsAction(fd) {
       back(`/fiches-de-paie?annee=${year}&mois=${month}`, `${list.length} bulletin(s) de paie généré(s) pour ${payroll.MONTHS[month - 1]} ${year}.`);
     }
   } catch (err) {
+    unstable_rethrow(err);
     back('/fiches-de-paie', safeError(err), true);
   }
 }
@@ -1006,6 +1033,7 @@ export async function markPayslipPaidAction(fd) {
     revalidatePath('/fiches-de-paie');
     back(`/fiches-de-paie/${id}`, 'Bulletin marqué comme payé.');
   } catch (err) {
+    unstable_rethrow(err);
     back(`/fiches-de-paie/${id}`, safeError(err), true);
   }
 }
@@ -1018,6 +1046,7 @@ export async function deletePayslipAction(fd) {
     revalidatePath('/fiches-de-paie');
     back('/fiches-de-paie', 'Bulletin de paie supprimé.');
   } catch (err) {
+    unstable_rethrow(err);
     back('/fiches-de-paie', safeError(err), true);
   }
 }
@@ -1041,6 +1070,7 @@ export async function createLeaveRequestAction(fd) {
     revalidatePath('/', 'layout');
     back(returnUrl, 'Demande de congé enregistrée avec succès.');
   } catch (err) {
+    unstable_rethrow(err);
     back(returnUrl, safeError(err), true);
   }
 }
@@ -1055,6 +1085,7 @@ export async function reviewLeaveRequestAction(fd) {
     revalidatePath('/conges');
     back('/conges', `Demande de congé ${status === 'approuve' ? 'approuvée' : 'refusée'}.`);
   } catch (err) {
+    unstable_rethrow(err);
     back('/conges', safeError(err), true);
   }
 }
@@ -1077,6 +1108,7 @@ export async function requestSalaryAdvanceAction(fd) {
     revalidatePath('/', 'layout');
     back(returnUrl, 'Demande d’acompte soumise avec succès.');
   } catch (err) {
+    unstable_rethrow(err);
     back(returnUrl, safeError(err), true);
   }
 }
@@ -1092,6 +1124,7 @@ export async function reviewSalaryAdvanceAction(fd) {
     revalidatePath('/acomptes');
     back('/acomptes', `Demande d’acompte mise à jour (${status}).`);
   } catch (err) {
+    unstable_rethrow(err);
     back('/acomptes', safeError(err), true);
   }
 }
@@ -1114,6 +1147,7 @@ export async function createExpenseReportAction(fd) {
     revalidatePath('/', 'layout');
     back(returnUrl, 'Note de frais enregistrée avec succès.');
   } catch (err) {
+    unstable_rethrow(err);
     back(returnUrl, safeError(err), true);
   }
 }
@@ -1128,6 +1162,7 @@ export async function reviewExpenseReportAction(fd) {
     revalidatePath('/notes-de-frais');
     back('/notes-de-frais', `Note de frais mise à jour (${status}).`);
   } catch (err) {
+    unstable_rethrow(err);
     back('/notes-de-frais', safeError(err), true);
   }
 }
@@ -1173,6 +1208,7 @@ export async function generateEmployeePortalTokenAction(fd) {
       ? 'Ancien lien coupé et nouveau lien créé. L\'ancien ne fonctionne plus.'
       : `Lien d'accès créé : il donne accès aux bulletins de paie et reste valable ${portal.TOKEN_DAYS} jours après chaque visite.`);
   } catch (err) {
+    unstable_rethrow(err);
     back(to, safeError(err), true);
   }
 }
@@ -1283,7 +1319,7 @@ export async function confirmPortalAccountAction(fd) {
   }
 
   revalidatePath(backUrl);
-  redirect(`${backUrl}?flash=${encodeURIComponent('Votre mot de passe a été défini avec succès. Bienvenue sur votre espace collaborateur !')}`);
+  back(backUrl, 'Votre mot de passe a été défini avec succès. Bienvenue sur votre espace collaborateur !');
 }
 
 export async function changePortalPasswordAction(fd) {
@@ -1316,5 +1352,17 @@ export async function loginPortalEmployeeAction(fd) {
     back(backUrl, res.error, true);
   }
 
-  redirect(`/portail/${res.token}?flash=${encodeURIComponent('Connexion réussie.')}`);
+  back(`/portail/${res.token}`, 'Connexion réussie. Bienvenue sur votre espace collaborateur !');
+}
+
+export async function requestPortalMagicLinkAction(fd) {
+  const email = text(fd, 'email', 150);
+  const backUrl = '/portail/connexion';
+
+  if (!email) {
+    back(backUrl, 'Veuillez saisir votre adresse e-mail.', true);
+  }
+
+  await portal.sendPortalMagicLink(email);
+  back(backUrl, 'Si votre compte collaborateur existe avec cette adresse, un lien d\'accès direct vient de vous être envoyé par e-mail.');
 }

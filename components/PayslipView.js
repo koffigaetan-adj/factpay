@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { money } from '@/lib/money';
-import { MONTHS, PAYMENT_METHODS } from '@/lib/rh-constants';
+import { MONTHS, PAYMENT_METHODS, isPayslipEditable } from '@/lib/rh-constants';
 import { frDate } from '@/lib/dates';
 import Icon from '@/components/Icon';
 import Modal from '@/components/Modal';
@@ -14,12 +14,31 @@ export default function PayslipView({ company, payslip }) {
 
   return (
     <div className="payslip-container">
+      {/* Un bulletin validé ou payé n'est plus modifiable. On l'explique ici plutôt que de
+          laisser disparaître le bouton sans motif : l'utilisateur voit pourquoi. */}
+      {!isPayslipEditable(payslip) && (
+        <div
+          className="no-print"
+          style={{ marginBottom: '20px', padding: '12px 16px', borderRadius: '8px', background: 'var(--bg)', borderLeft: '3px solid var(--brand)', fontSize: '13.5px' }}
+        >
+          <strong>Ce bulletin n'est plus modifiable.</strong>{' '}
+          {payslip.status === 'paye'
+            ? 'Le règlement a été enregistré : les montants sont figés pour garder une trace exacte de ce qui a été versé.'
+            : 'Le bulletin est validé : pour le corriger, établissez un nouveau bulletin, le précédent restant archivé.'}
+        </div>
+      )}
+
       {/* Barre d'actions non imprimable */}
       <div className="actions no-print" style={{ marginBottom: '24px', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <Link href="/fiches-de-paie" className="button secondary">
           <Icon name="chevron" size={16} /> Retour à la liste
         </Link>
         <div style={{ display: 'inline-flex', gap: '10px' }}>
+          {isPayslipEditable(payslip) && (
+            <Link href={`/fiches-de-paie/${payslip.id}/modifier`} className="button">
+              <Icon name="edit" size={16} /> Modifier le bulletin
+            </Link>
+          )}
           <button type="button" className="button secondary" onClick={() => window.print()}>
             <Icon name="download" size={16} /> Imprimer / PDF
           </button>
@@ -161,6 +180,17 @@ export default function PayslipView({ company, payslip }) {
                   <td style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7280' }}>—</td>
                 </tr>
               )}
+              {/* Les lignes libres sont imprimées avec leur libellé : un montant sans
+                  explication sur un bulletin ne peut être ni vérifié ni contesté. */}
+              {payslip.lines?.filter((l) => l.kind === 'ajout').map((line) => (
+                <tr key={`ajout-${line.id}`} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                  <td style={{ padding: '8px 12px' }}>{line.label}</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px' }}>—</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px' }}>—</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', fontWeight: 600 }}>{money(line.amount, cur)}</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7280' }}>—</td>
+                </tr>
+              ))}
 
               {/* Ligne Brut */}
               <tr style={{ background: '#F9FAFB', fontWeight: 700, borderTop: '2px solid #9CA3AF', borderBottom: '2px solid #9CA3AF' }}>
@@ -206,6 +236,17 @@ export default function PayslipView({ company, payslip }) {
                   <td style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7280' }}>—</td>
                 </tr>
               )}
+              {/* Les retenues libres suivent les rubriques fixes, dans le même ordre que le
+                  formulaire, pour que la lecture du bulletin recoupe la saisie. */}
+              {payslip.lines?.filter((l) => l.kind === 'retenue').map((line) => (
+                <tr key={`retenue-${line.id}`} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                  <td style={{ padding: '8px 12px' }}>{line.label}</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px' }}>—</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px' }}>—</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', color: '#DC2626' }}>− {money(line.amount, cur)}</td>
+                  <td style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7280' }}>—</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -236,6 +277,16 @@ export default function PayslipView({ company, payslip }) {
             </div>
           </div>
         </div>
+
+        {/* Notes internes. Elles sont saisies dans le formulaire depuis toujours mais n'ont
+            jamais été rendues ici : quelqu'un qui ouvrait la fiche perdait l'explication
+            d'un montant. Elles restent hors impression, ce sont des notes de gestion. */}
+        {payslip.notes && (
+          <div className="no-print" style={{ borderTop: '1px dashed #D1D5DB', paddingTop: '16px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#4B5563', marginBottom: '4px' }}>Notes internes</div>
+            <p style={{ fontSize: '13px', color: '#374151', margin: 0, whiteSpace: 'pre-wrap' }}>{payslip.notes}</p>
+          </div>
+        )}
 
         {/* Mentions légales et Signatures */}
         <div style={{ borderTop: '1px dashed #D1D5DB', paddingTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
