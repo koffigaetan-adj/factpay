@@ -243,6 +243,26 @@ export default function EmployeeForm({ employee = null, companyCurrency = 'XOF',
             />
           </div>
         </div>
+
+        <div className="form-grid" style={{ marginTop: '12px' }}>
+          <div className="field">
+            <label htmlFor="leave_balance">
+              Solde de congés acquis (jours)
+              <span className="help" style={{ marginLeft: '6px' }}>
+                (Selon convention ex: 2,5 j / mois. Mettre 0 pour un nouvel embauché)
+              </span>
+            </label>
+            <input
+              id="leave_balance"
+              name="leave_balance"
+              type="number"
+              min="0"
+              step="0.5"
+              defaultValue={employee?.leave_balance !== undefined ? employee.leave_balance : 0}
+              placeholder="Ex: 0 ou 2.5"
+            />
+          </div>
+        </div>
       </div>
 
       <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '16px 0' }} />

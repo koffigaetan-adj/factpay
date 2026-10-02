@@ -894,6 +894,7 @@ export async function saveEmployeeAction(fd) {
       payment_method: text(fd, 'payment_method', 30) || 'bank',
       payment_details: text(fd, 'payment_details', 100),
       status: text(fd, 'status', 20),
+      leave_balance: fd.has('leave_balance') && fd.get('leave_balance') !== '' ? number(fd, 'leave_balance', { fallback: 0 }) : undefined,
     });
 
     let portalActivated = false;

@@ -7,6 +7,7 @@ import { MONTHS, LEAVE_TYPES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/lib/
 import { frDate } from '@/lib/dates';
 import { getWorkCertificateText } from '@/lib/certificates';
 import Icon from '@/components/Icon';
+import Logo from '@/components/Logo';
 import OrgChartView from '@/components/OrgChartView';
 import { portalLeaveRequestAction, portalAdvanceRequestAction, portalExpenseReportAction } from '@/app/actions';
 
@@ -95,22 +96,20 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
         }}
       >
         {/* Logo FactPay Salarié */}
-        <div style={{ padding: '24px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '22px', fontWeight: '850', letterSpacing: '-0.04em', color: '#0F172A', display: 'inline-flex', alignItems: 'center' }}>
-              Fact<span style={{ color: 'var(--brand, #2B4C7E)' }}>Pay</span>
-            </span>
+        <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Logo height={30} />
             <span style={{
               fontSize: '11px',
               fontWeight: 700,
               padding: '2px 8px',
               borderRadius: '999px',
-              background: 'color-mix(in srgb, var(--brand, #2B4C7E) 12%, transparent)',
+              background: 'color-mix(in srgb, var(--brand, #2B4C7E) 10%, transparent)',
               color: 'var(--brand, #2B4C7E)',
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
             }}>
-              Portail
+              Salarié
             </span>
           </div>
 
@@ -259,123 +258,195 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
             </span>
           </div>
 
-          {/* Côté droit : Badge AI / Aide / Pilule Profil PayFit */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Badge PayFit AI / FactPay */}
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '5px 12px',
-              borderRadius: '20px',
-              background: 'linear-gradient(135deg, #FDF4FF 0%, #EFF6FF 100%)',
-              border: '1px solid #E0E7FF',
-              fontSize: '12.5px',
-              fontWeight: 650,
-              color: '#4F46E5',
-            }}>
-              <span>✦</span> FactPay RH
+          {/* Côté droit : Aide (?) & Pilule Profil PayFit */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Bouton d'aide (?) soigné */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setHelpOpen(!helpOpen)}
+                title="Aide et assistance RH"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: '1px solid #E2E8F0',
+                  background: helpOpen ? '#F1F5F9' : '#FFFFFF',
+                  color: helpOpen ? '#0F172A' : '#64748B',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#0F172A'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = helpOpen ? '#F1F5F9' : '#FFFFFF'; e.currentTarget.style.color = helpOpen ? '#0F172A' : '#64748B'; }}
+              >
+                <Icon name="help" size={18} />
+              </button>
+
+              {helpOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '10px',
+                  width: '300px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.06)',
+                  border: '1px solid #E2E8F0',
+                  padding: '18px',
+                  zIndex: 100,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <strong style={{ fontSize: '14px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="help" size={16} /> Assistance RH
+                    </strong>
+                    <button type="button" onClick={() => setHelpOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px' }}>
+                      <Icon name="close" size={14} />
+                    </button>
+                  </div>
+                  <p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#64748B', lineHeight: 1.5 }}>
+                    Pour toute question sur vos fiches de paie ou vos congés, contactez votre service RH :
+                  </p>
+                  <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', fontSize: '12.5px', color: '#334155', border: '1px solid #F1F5F9' }}>
+                    <div>Entreprise : <strong>{employee?.company_name}</strong></div>
+                    {employee?.company_email && <div style={{ marginTop: '3px' }}>E-mail : <strong>{employee.company_email}</strong></div>}
+                    {employee?.company_phone && <div style={{ marginTop: '3px' }}>Tél : <strong>{employee.company_phone}</strong></div>}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Bouton d'aide (?) */}
-            <button
-              type="button"
-              onClick={() => setHelpOpen(!helpOpen)}
-              title="Aide et assistance"
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '50%',
-                border: '1px solid #E2E8F0',
-                background: '#FFFFFF',
-                color: '#64748B',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: '14px',
-                fontWeight: 700,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              ?
-            </button>
+            {/* Pilule Salarié (identique à la capture PayFit) */}
+            <div style={{ position: 'relative' }}>
+              <div
+                onClick={() => setShowProfileModal(!showProfileModal)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  padding: '4px 10px 4px 4px',
+                  borderRadius: '24px',
+                  border: '1px solid transparent',
+                  transition: 'all 0.15s ease',
+                  background: showProfileModal ? '#F8FAFC' : 'transparent',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#F8FAFC'; }}
+                onMouseLeave={(e) => { if (!showProfileModal) e.currentTarget.style.background = 'transparent'; }}
+              >
+                {/* Avatar rond avec initiales (ex: KA) */}
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: '#F1F5F9',
+                  color: '#1E293B',
+                  border: '1px solid #CBD5E1',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: '13px',
+                  fontWeight: 750,
+                  letterSpacing: '-0.02em',
+                  flexShrink: 0,
+                }}>
+                  {initials}
+                </div>
 
-            {/* Pilule Salarié (exactement comme dans la capture PayFit) */}
-            <div
-              onClick={() => setShowProfileModal(!showProfileModal)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                cursor: 'pointer',
-                padding: '4px 8px 4px 4px',
-                borderRadius: '24px',
-                transition: 'background 0.15s ease',
-                position: 'relative',
-              }}
-            >
-              {/* Avatar rond avec initiales (ex: KA) */}
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                background: '#F1F5F9',
-                color: '#1E293B',
-                border: '1px solid #CBD5E1',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: '13px',
-                fontWeight: 750,
-                letterSpacing: '-0.02em',
-                flexShrink: 0,
-              }}>
-                {initials}
+                {/* Nom & Entreprise */}
+                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.25 }}>
+                  <span style={{ fontSize: '13.5px', fontWeight: 650, color: '#0F172A' }}>
+                    {employee?.first_name} {employee?.last_name}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {employee?.company_name}
+                  </span>
+                </div>
+
+                <div style={{ color: '#94A3B8', display: 'grid', placeItems: 'center', marginLeft: '2px' }}>
+                  <Icon name="chevronDown" size={14} />
+                </div>
               </div>
 
-              {/* Nom & Entreprise */}
-              <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.25 }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 650, color: '#0F172A' }}>
-                  {employee?.first_name} {employee?.last_name}
-                </span>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {employee?.company_name}
-                </span>
-              </div>
-
-              <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '2px' }}>▾</span>
-
-              {/* Menu Profil Déroulant */}
+              {/* Menu Profil Déroulant avec icônes par ligne */}
               {showProfileModal && (
                 <div style={{
                   position: 'absolute',
                   top: '100%',
                   right: 0,
-                  marginTop: '8px',
-                  width: '240px',
+                  marginTop: '10px',
+                  width: '260px',
                   background: '#FFFFFF',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.06)',
                   border: '1px solid #E2E8F0',
-                  padding: '12px',
+                  padding: '8px',
                   zIndex: 100,
                 }}>
-                  <div style={{ padding: '4px 8px 8px', borderBottom: '1px solid #F1F5F9', marginBottom: '8px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0F172A' }}>{employee?.first_name} {employee?.last_name}</div>
-                    <div style={{ fontSize: '12px', color: '#64748B' }}>{employee?.email || 'Salarié'}</div>
+                  <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid #F1F5F9', marginBottom: '6px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#0F172A' }}>{employee?.first_name} {employee?.last_name}</div>
+                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', wordBreak: 'break-all' }}>{employee?.email || 'Salarié'}</div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => { setActiveTab('profil'); setShowProfileModal(false); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: '6px', border: 'none', background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155' }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', border: 'none',
+                      background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155',
+                      display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                   >
-                    Voir mon profil & contrat
+                    <div style={{ color: '#64748B', display: 'grid', placeItems: 'center' }}><Icon name="user" size={16} /></div>
+                    <span>Mon profil & contrat</span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('attestation'); setShowProfileModal(false); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: '6px', border: 'none', background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155' }}
+                    onClick={() => { setActiveTab('bulletins'); setShowProfileModal(false); }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', border: 'none',
+                      background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155',
+                      display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                   >
-                    Télécharger mon attestation
+                    <div style={{ color: '#2563EB', display: 'grid', placeItems: 'center' }}><Icon name="payslip" size={16} /></div>
+                    <span>Mes bulletins de paie</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('conges'); setShowProfileModal(false); }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', border: 'none',
+                      background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155',
+                      display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                  >
+                    <div style={{ color: '#059669', display: 'grid', placeItems: 'center' }}><Icon name="calendar" size={16} /></div>
+                    <span>Mes congés & absences</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('documents'); setShowProfileModal(false); }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', border: 'none',
+                      background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155',
+                      display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                  >
+                    <div style={{ color: '#7C3AED', display: 'grid', placeItems: 'center' }}><Icon name="file" size={16} /></div>
+                    <span>Mon attestation de travail</span>
                   </button>
                 </div>
               )}
@@ -470,33 +541,15 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
             }}>
               {/* EN-TÊTE BONJOUR (Identique à la capture PayFit) */}
               <div style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <h1 style={{
-                    fontSize: '28px',
-                    fontWeight: '800',
-                    margin: 0,
-                    color: '#0F172A',
-                    letterSpacing: '-0.025em',
-                  }}>
-                    Bonjour {employee?.first_name} {employee?.last_name}
-                  </h1>
-
-                  {/* Petit badge rond avec initiales (ex: KA v) */}
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 8px',
-                    borderRadius: '16px',
-                    background: '#F1F5F9',
-                    color: '#475569',
-                    border: '1px solid #E2E8F0',
-                  }}>
-                    {initials} <span style={{ fontSize: '10px', color: '#94A3B8' }}>▾</span>
-                  </span>
-                </div>
+                <h1 style={{
+                  fontSize: '28px',
+                  fontWeight: '800',
+                  margin: 0,
+                  color: '#0F172A',
+                  letterSpacing: '-0.025em',
+                }}>
+                  Bonjour {employee?.first_name} {employee?.last_name}
+                </h1>
 
                 <p style={{ margin: '6px 0 0', fontSize: '14.5px', color: '#64748B', fontWeight: 500 }}>
                   Nous sommes le {formattedDate.toLowerCase()}
