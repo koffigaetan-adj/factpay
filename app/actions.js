@@ -17,6 +17,12 @@ import { passwordProblem } from '@/lib/password';
 import { cleanPeriod, periodHours } from '@/lib/period';
 import * as documents from '@/lib/documents';
 import * as accountant from '@/lib/accountant';
+import * as employees from '@/lib/employees';
+import * as payroll from '@/lib/payroll';
+import * as leaves from '@/lib/leaves';
+import * as advances from '@/lib/advances';
+import * as expenses from '@/lib/expenses';
+import * as portal from '@/lib/portal';
 import { listNotifications, markAllRead } from '@/lib/notifications';
 import { COUNTRIES, cleanMobiles, localNumber, formatNumber } from '@/lib/payment';
 import { AUTH_APPS } from '@/lib/authenticators';
@@ -855,4 +861,386 @@ export async function listMyNotifications() {
 export async function markNotificationsRead() {
   const user = await auth.requireUser();
   await markAllRead(user.id);
+}
+
+// ---------- Ressources Humaines : Salariés ----------
+
+export async function saveEmployeeAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnTo = String(fd.get('return_to') || '').trim() || (fd.get('id') ? `/employes/${fd.get('id')}` : '/employes');
+  try {
+    const email = text(fd, 'email', 150);
+    const activatePortal = fd.get('activate_portal') === '1' || fd.get('activate_portal') === 'on' || fd.get('activate_portal') === 'true';
+
+    if (activatePortal && !email) {
+      throw new Error("L'adresse e-mail est obligatoire pour activer l'espace en ligne du salarié.");
+    }
+
+    const emp = await employees.saveEmployee(company, {
+      id: fd.get('id') ? Number(fd.get('id')) : null,
+      first_name: text(fd, 'first_name', 80),
+      last_name: text(fd, 'last_name', 80),
+      email: email,
+      phone: text(fd, 'phone', 40),
+      job_title: text(fd, 'job_title', 100),
+      department: text(fd, 'department', 80),
+      contract_type: text(fd, 'contract_type', 30),
+      category: text(fd, 'category', 50),
+      hire_date: text(fd, 'hire_date', 20),
+      end_date: text(fd, 'end_date', 20),
+      cnss_number: text(fd, 'cnss_number', 50),
+      id_card_number: text(fd, 'id_card_number', 50),
+      base_salary: number(fd, 'base_salary'),
+      payment_method: text(fd, 'payment_method', 30) || 'bank',
+      payment_details: text(fd, 'payment_details', 100),
+      status: text(fd, 'status', 20),
+    });
+
+    let portalActivated = false;
+    if (activatePortal && email) {
+      await portal.getOrCreatePortalToken(emp.id, { force: false });
+      portalActivated = true;
+    }
+
+    revalidatePath('/employes');
+    revalidatePath(`/employes/${emp.id}`);
+    revalidatePath('/', 'layout');
+
+    const successMsg = portalActivated
+      ? `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès et son espace en ligne a été activé.`
+      : `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès.`;
+
+    back(returnTo, successMsg);
+  } catch (err) {
+    back(returnTo, safeError(err), true);
+  }
+}
+
+export async function deleteEmployeeAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  try {
+    const res = await employees.deleteEmployee(company.id, id);
+    revalidatePath('/employes');
+    if (res.archived) {
+      back('/employes', 'Salarié archivé (ses bulletins de paie passés ont été conservés).');
+    } else {
+      back('/employes', 'Salarié supprimé.');
+    }
+  } catch (err) {
+    back('/employes', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Fiches de Paie ----------
+
+export async function savePayslipAction(fd) {
+  const { company } = await auth.requireCompany();
+  try {
+    const p = await payroll.savePayslip(company, {
+      id: fd.get('id') ? Number(fd.get('id')) : null,
+      employee_id: Number(fd.get('employee_id')),
+      period_month: number(fd, 'period_month', { min: 1, max: 12 }),
+      period_year: number(fd, 'period_year', { min: 2000, max: 2100 }),
+      issue_date: text(fd, 'issue_date', 20),
+      payment_date: text(fd, 'payment_date', 20),
+      base_salary: number(fd, 'base_salary'),
+      seniority_bonus: number(fd, 'seniority_bonus'),
+      transport_allowance: number(fd, 'transport_allowance'),
+      function_allowance: number(fd, 'function_allowance'),
+      other_allowances: number(fd, 'other_allowances'),
+      overtime_amount: number(fd, 'overtime_amount'),
+      cnss_employee_rate: number(fd, 'cnss_employee_rate', { fallback: 4.0 }),
+      tax_salary_amount: number(fd, 'tax_salary_amount'),
+      salary_advances: number(fd, 'salary_advances'),
+      other_deductions: number(fd, 'other_deductions'),
+      cnss_employer_rate: number(fd, 'cnss_employer_rate', { fallback: 17.5 }),
+      status: text(fd, 'status', 20),
+      payment_method: text(fd, 'payment_method', 30),
+      payment_reference: text(fd, 'payment_reference', 100),
+      notes: text(fd, 'notes', 500),
+    });
+    revalidatePath('/fiches-de-paie');
+    back(`/fiches-de-paie/${p.id}`, `Bulletin ${p.number} enregistré.`);
+  } catch (err) {
+    back('/fiches-de-paie', safeError(err), true);
+  }
+}
+
+export async function generateMonthlyPayslipsAction(fd) {
+  const { company } = await auth.requireCompany();
+  const year = number(fd, 'period_year', { min: 2000, max: 2100, fallback: new Date().getUTCFullYear() });
+  const month = number(fd, 'period_month', { min: 1, max: 12, fallback: new Date().getUTCMonth() + 1 });
+  try {
+    const list = await payroll.generateMonthlyPayslips(company, { year, month });
+    revalidatePath('/fiches-de-paie');
+    if (!list.length) {
+      back(`/fiches-de-paie?annee=${year}&mois=${month}`, 'Tous les bulletins de ce mois ont déjà été créés.');
+    } else {
+      back(`/fiches-de-paie?annee=${year}&mois=${month}`, `${list.length} bulletin(s) de paie généré(s) pour ${payroll.MONTHS[month - 1]} ${year}.`);
+    }
+  } catch (err) {
+    back('/fiches-de-paie', safeError(err), true);
+  }
+}
+
+export async function markPayslipPaidAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const payment_method = text(fd, 'payment_method', 30);
+  const payment_reference = text(fd, 'payment_reference', 100);
+  const payment_date = text(fd, 'payment_date', 20);
+  try {
+    await payroll.markPayslipPaid(company, id, { payment_date, payment_method, payment_reference });
+    revalidatePath('/fiches-de-paie');
+    back(`/fiches-de-paie/${id}`, 'Bulletin marqué comme payé.');
+  } catch (err) {
+    back(`/fiches-de-paie/${id}`, safeError(err), true);
+  }
+}
+
+export async function deletePayslipAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  try {
+    await payroll.deletePayslip(company.id, id);
+    revalidatePath('/fiches-de-paie');
+    back('/fiches-de-paie', 'Bulletin de paie supprimé.');
+  } catch (err) {
+    back('/fiches-de-paie', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Congés & Absences ----------
+
+export async function createLeaveRequestAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnUrl = text(fd, 'return_url', 200) || '/conges';
+  try {
+    const r = await leaves.createLeaveRequest(company.id, {
+      employee_id: Number(fd.get('employee_id')),
+      type: text(fd, 'type', 40),
+      start_date: text(fd, 'start_date', 20),
+      end_date: text(fd, 'end_date', 20),
+      days_count: number(fd, 'days_count', { min: 0.5, fallback: 1 }),
+      reason: text(fd, 'reason', 300),
+    }, fd.get('justificatif'));
+    if (r && r.error) back(returnUrl, r.error, true);
+    revalidatePath(returnUrl);
+    revalidatePath('/', 'layout');
+    back(returnUrl, 'Demande de congé enregistrée avec succès.');
+  } catch (err) {
+    back(returnUrl, safeError(err), true);
+  }
+}
+
+export async function reviewLeaveRequestAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const status = text(fd, 'status', 30);
+  const review_note = text(fd, 'review_note', 300);
+  try {
+    await leaves.reviewLeaveRequest(company.id, id, { status, review_note });
+    revalidatePath('/conges');
+    back('/conges', `Demande de congé ${status === 'approuve' ? 'approuvée' : 'refusée'}.`);
+  } catch (err) {
+    back('/conges', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Acomptes sur Salaire ----------
+
+export async function requestSalaryAdvanceAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnUrl = text(fd, 'return_url', 200) || '/acomptes';
+  try {
+    await advances.requestSalaryAdvance(company.id, {
+      employee_id: Number(fd.get('employee_id')),
+      amount: number(fd, 'amount'),
+      reason: text(fd, 'reason', 300),
+      period_month: number(fd, 'period_month'),
+      period_year: number(fd, 'period_year'),
+      payment_method: text(fd, 'payment_method', 30),
+    });
+    revalidatePath(returnUrl);
+    revalidatePath('/', 'layout');
+    back(returnUrl, 'Demande d’acompte soumise avec succès.');
+  } catch (err) {
+    back(returnUrl, safeError(err), true);
+  }
+}
+
+export async function reviewSalaryAdvanceAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const status = text(fd, 'status', 30);
+  const payment_method = text(fd, 'payment_method', 30);
+  const payment_reference = text(fd, 'payment_reference', 100);
+  try {
+    await advances.reviewSalaryAdvance(company.id, id, { status, payment_method, payment_reference });
+    revalidatePath('/acomptes');
+    back('/acomptes', `Demande d’acompte mise à jour (${status}).`);
+  } catch (err) {
+    back('/acomptes', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Notes de Frais ----------
+
+export async function createExpenseReportAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnUrl = text(fd, 'return_url', 200) || '/notes-de-frais';
+  try {
+    const r = await expenses.createExpenseReport(company.id, {
+      employee_id: Number(fd.get('employee_id')),
+      title: text(fd, 'title', 100),
+      amount: number(fd, 'amount'),
+      category: text(fd, 'category', 40),
+      expense_date: text(fd, 'expense_date', 20),
+    }, fd.get('recu'));
+    if (r && r.error) back(returnUrl, r.error, true);
+    revalidatePath(returnUrl);
+    revalidatePath('/', 'layout');
+    back(returnUrl, 'Note de frais enregistrée avec succès.');
+  } catch (err) {
+    back(returnUrl, safeError(err), true);
+  }
+}
+
+export async function reviewExpenseReportAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const status = text(fd, 'status', 30);
+  const payment_reference = text(fd, 'payment_reference', 100);
+  try {
+    await expenses.reviewExpenseReport(company.id, id, { status, payment_reference });
+    revalidatePath('/notes-de-frais');
+    back('/notes-de-frais', `Note de frais mise à jour (${status}).`);
+  } catch (err) {
+    back('/notes-de-frais', safeError(err), true);
+  }
+}
+
+// ---------- Portail Salarié : lien d'accès, révocation, et demandes du salarié ----------
+
+// Page de retour. L'activation se fait aussi bien depuis la fiche que depuis la liste des
+// salariés : sans cela, le bouton de la liste renvoyait le propriétaire sur la fiche, ce qui
+// annulait l'intérêt d'agir sans quitter la liste. On n'accepte qu'un chemin interne.
+function portalReturnPath(fd, employeeId) {
+  const wanted = String(fd.get('return_to') || '').trim();
+  return wanted.startsWith('/') && !wanted.startsWith('//') ? wanted : `/employes/${employeeId}`;
+}
+
+// Crée le lien d'accès, ou le renouvelle. Le bouton « Régénérer le lien » passe `force` : sans
+// cela la fonction renvoyait le jeton déjà en base et le bouton ne coupait rien, un lien fuite
+// restant valable pour toujours.
+export async function generateEmployeePortalTokenAction(fd) {
+  const { company } = await auth.requireCompany();
+  const employeeId = Number(fd.get('employee_id'));
+  const to = portalReturnPath(fd, employeeId);
+  if (!(await employees.getEmployee(company.id, employeeId))) back(to, 'Salarié introuvable.', true);
+  const wasActive = Boolean((await employees.getEmployee(company.id, employeeId)).portal_token);
+  try {
+    await portal.getOrCreatePortalToken(employeeId, { force: fd.get('regen') === '1' });
+    revalidatePath(`/employes/${employeeId}`);
+    revalidatePath('/employes');
+    revalidatePath('/', 'layout');
+    back(to, wasActive
+      ? 'Ancien lien coupé et nouveau lien créé. L\'ancien ne fonctionne plus.'
+      : `Lien d'accès créé : il donne accès aux bulletins de paie et reste valable ${portal.TOKEN_DAYS} jours après chaque visite.`);
+  } catch (err) {
+    back(to, safeError(err), true);
+  }
+}
+
+// Coupe définitivement l'accès du salarié à son portail.
+export async function revokeEmployeePortalAccessAction(fd) {
+  const { company } = await auth.requireCompany();
+  const employeeId = Number(fd.get('employee_id'));
+  const to = portalReturnPath(fd, employeeId);
+  if (!(await employees.getEmployee(company.id, employeeId))) back(to, 'Salarié introuvable.', true);
+  await portal.revokePortalToken(employeeId);
+  revalidatePath(`/employes/${employeeId}`);
+  revalidatePath('/employes');
+  revalidatePath('/', 'layout');
+  back(to, 'Accès au portail coupé. Le salarié ne peut plus ouvrir ses bulletins avec l\'ancien lien.');
+}
+
+// Résout le salarié depuis le jeton du portail et refuse tout le reste. Le `employee_id` des
+// formulaires du portail est volontairement ignoré : seul le jeton décide de quel salarié il
+// s'agit, ce qui empêche d'écrire une demande au nom de quelqu'un d'autre. Renvoie { employee,
+// backUrl }, ou redirige vers la page d'accueil du portail en cas de jeton invalide ou expiré.
+async function portalGuard(fd) {
+  const token = text(fd, 'portal_token', 120);
+  const backUrl = `/portail/${token}`;
+
+  if (!token) redirect('/');
+
+  // Limite les envois depuis un même appareil et un même jeton : le portail est une page publique,
+  // son adresse circule et ses formulaires ne doivent pas pouvoir être remplis en boucle.
+  if (await hitLimit('portal', token, 20, 60)) {
+    back(backUrl, 'Trop d\'envois depuis cet appareil. Réessaie dans une heure.', true);
+  }
+
+  const employee = await portal.portalEmployee(token);
+  if (!employee) {
+    const expired = await portal.portalIsExpired(token);
+    redirect(expired
+      ? `/portail/${token}?expire=1`
+      : '/');
+  }
+  if (employee.status === 'inactif' || employee.status === 'archive') {
+    back(backUrl, 'Votre accès a été fermé par votre employeur. Contactez le service RH.', true);
+  }
+  return { employee, backUrl };
+}
+
+export async function portalLeaveRequestAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const r = await leaves.createLeaveRequest(employee.company_id, {
+    employee_id: employee.id,
+    type: text(fd, 'type', 40),
+    start_date: text(fd, 'start_date', 20),
+    end_date: text(fd, 'end_date', 20),
+    days_count: number(fd, 'days_count', { min: 0.5, fallback: 1 }),
+    reason: text(fd, 'reason', 300),
+  }, fd.get('justificatif'));
+  if (r && r.error) back(backUrl, r.error, true);
+  await portal.touchPortalAccess(employee);
+  revalidatePath(backUrl);
+  revalidatePath('/conges');
+  back(backUrl, 'Votre demande a été transmise. Vous serez notifié dès qu\'elle est traitée.');
+}
+
+export async function portalAdvanceRequestAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const now = new Date();
+  await advances.requestSalaryAdvance(employee.company_id, {
+    employee_id: employee.id,
+    amount: number(fd, 'amount'),
+    reason: text(fd, 'reason', 300),
+    period_month: number(fd, 'period_month', { min: 1, max: 12, fallback: now.getUTCMonth() + 1 }),
+    period_year: number(fd, 'period_year', { min: 2000, max: 2100, fallback: now.getUTCFullYear() }),
+    payment_method: text(fd, 'payment_method', 30),
+  });
+  await portal.touchPortalAccess(employee);
+  revalidatePath(backUrl);
+  revalidatePath('/acomptes');
+  back(backUrl, 'Votre demande d\'acompte a été transmise.');
+}
+
+export async function portalExpenseReportAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const r = await expenses.createExpenseReport(employee.company_id, {
+    employee_id: employee.id,
+    title: text(fd, 'title', 100),
+    amount: number(fd, 'amount'),
+    category: text(fd, 'category', 40),
+    expense_date: text(fd, 'expense_date', 20),
+  }, fd.get('recu'));
+  if (r && r.error) back(backUrl, r.error, true);
+  await portal.touchPortalAccess(employee);
+  revalidatePath(backUrl);
+  revalidatePath('/notes-de-frais');
+  back(backUrl, 'Votre note de frais a été transmise.');
 }
