@@ -7,7 +7,7 @@ import Modal from '@/components/Modal';
 import EmployeeForm from '@/components/EmployeeForm';
 import Icon from '@/components/Icon';
 import { deleteEmployeeAction, generateEmployeePortalTokenAction } from '@/app/actions';
-import { portalAccessState, portalLastSeenLabel, PORTAL_ACTIVE, PORTAL_STATE_LABEL } from '@/lib/portal-state';
+import { portalAccessState, portalLastSeenLabel, PORTAL_ACTIVE, PORTAL_PENDING, PORTAL_STATE_LABEL } from '@/lib/portal-state';
 
 const STATUS_MAP = {
   actif: { label: 'Actif', cls: 'paid' },
@@ -16,7 +16,7 @@ const STATUS_MAP = {
   archive: { label: 'Archivé', cls: 'late' },
 };
 
-const PORTAL_CLS = { [PORTAL_ACTIVE]: 'paid', expire: 'late', aucun: 'draft' };
+const PORTAL_CLS = { [PORTAL_ACTIVE]: 'paid', [PORTAL_PENDING]: 'wait', expire: 'late', aucun: 'draft' };
 
 function getInitials(first, last) {
   const f = (first || '').trim()[0] || '';

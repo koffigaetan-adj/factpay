@@ -94,9 +94,16 @@ export default async function Page({ params, searchParams }) {
       <section className="card" style={{ padding: '24px', marginBottom: '32px', borderLeft: '4px solid var(--brand)' }}>
         <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'flex-wrap': 'wrap', gap: '16px' }}>
           <div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Icon name="link" size={18} /> Espace Collaborateur (Self-Service)
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="link" size={18} /> Espace Collaborateur (Self-Service)
+              </h3>
+              {employee.portal_token && (
+                <span className={`status ${employee.portal_token_expires_at && new Date(employee.portal_token_expires_at) <= new Date() ? 'late' : employee.portal_last_seen_at ? 'paid' : 'wait'}`}>
+                  {employee.portal_token_expires_at && new Date(employee.portal_token_expires_at) <= new Date() ? 'Lien expiré' : employee.portal_last_seen_at ? 'Espace actif' : 'En attente'}
+                </span>
+              )}
+            </div>
             <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--sub)' }}>
               Permet à {employee.first_name} de consulter ses bulletins, poser ses congés, demander des acomptes et télécharger son attestation de travail.
             </p>

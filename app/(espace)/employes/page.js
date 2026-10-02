@@ -36,7 +36,7 @@ export default async function Page({ searchParams }) {
 
   const activeCount = allEmployees.filter((e) => e.status === 'actif').length;
   const congeCount = allEmployees.filter((e) => e.status === 'conge').length;
-  const withPortalCount = allEmployees.filter((e) => portalAccessState(e) === PORTAL_ACTIVE).length;
+  const withPortalCount = allEmployees.filter((e) => portalAccessState(e) !== PORTAL_NONE).length;
   const sansPortailCount = allEmployees.filter((e) => portalAccessState(e) === PORTAL_NONE).length;
 
   const returnTo = onlySansPortail ? '/employes?portail=absent' : `/employes${filterKey === 'all' ? '' : `?filtre=${filterKey}`}`;

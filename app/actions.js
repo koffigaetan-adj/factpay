@@ -7,7 +7,7 @@ import { q, one } from '@/lib/db';
 import * as auth from '@/lib/auth';
 import * as invoices from '@/lib/invoices';
 import { sendMail, mailTestMode } from '@/lib/mail';
-import { verifyEmail, resetPasswordEmail, changeEmailEmail, loginCodeEmail, securityNoticeEmail, withImages } from '@/lib/emails';
+import { verifyEmail, resetPasswordEmail, changeEmailEmail, loginCodeEmail, securityNoticeEmail, employeePortalInvitationEmail, withImages } from '@/lib/emails';
 import * as twofa from '@/lib/twofa';
 import { newSecret, verifyCode } from '@/lib/totp';
 import { saveFile, deleteFile } from '@/lib/storage';
@@ -898,8 +898,18 @@ export async function saveEmployeeAction(fd) {
 
     let portalActivated = false;
     if (activatePortal && email) {
-      await portal.getOrCreatePortalToken(emp.id, { force: false });
+      const token = await portal.getOrCreatePortalToken(emp.id, { force: false });
       portalActivated = true;
+      const portalUrl = `${appUrl()}/portail/${token}`;
+      try {
+        await sendMail({
+          to: emp.email,
+          replyTo: company.email || undefined,
+          ...(await withImages(employeePortalInvitationEmail({ employee: emp, company, portalUrl }), company)),
+        });
+      } catch (mailErr) {
+        console.error('Erreur envoi email portail salarié:', mailErr);
+      }
     }
 
     revalidatePath('/employes');
@@ -907,7 +917,7 @@ export async function saveEmployeeAction(fd) {
     revalidatePath('/', 'layout');
 
     const successMsg = portalActivated
-      ? `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès et son espace en ligne a été activé.`
+      ? `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès et invitation envoyée à ${emp.email}.`
       : `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès.`;
 
     back(returnTo, successMsg);
@@ -1141,7 +1151,20 @@ export async function generateEmployeePortalTokenAction(fd) {
   if (!(await employees.getEmployee(company.id, employeeId))) back(to, 'Salarié introuvable.', true);
   const wasActive = Boolean((await employees.getEmployee(company.id, employeeId)).portal_token);
   try {
-    await portal.getOrCreatePortalToken(employeeId, { force: fd.get('regen') === '1' });
+    const token = await portal.getOrCreatePortalToken(employeeId, { force: fd.get('regen') === '1' });
+    const emp = await employees.getEmployee(company.id, employeeId);
+    if (emp?.email) {
+      const portalUrl = `${appUrl()}/portail/${token}`;
+      try {
+        await sendMail({
+          to: emp.email,
+          replyTo: company.email || undefined,
+          ...(await withImages(employeePortalInvitationEmail({ employee: emp, company, portalUrl }), company)),
+        });
+      } catch (mailErr) {
+        console.error('Erreur envoi email portail salarié:', mailErr);
+      }
+    }
     revalidatePath(`/employes/${employeeId}`);
     revalidatePath('/employes');
     revalidatePath('/', 'layout');
