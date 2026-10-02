@@ -1268,3 +1268,53 @@ export async function portalExpenseReportAction(fd) {
   revalidatePath('/notes-de-frais');
   back(backUrl, 'Votre note de frais a été transmise.');
 }
+
+export async function confirmPortalAccountAction(fd) {
+  const token = text(fd, 'token', 100);
+  const password = String(fd.get('password') || '');
+  const confirm = String(fd.get('confirm') || '');
+  const backUrl = `/portail/${token}`;
+
+  if (!token) redirect('/');
+
+  const res = await portal.confirmPortalAccount(token, password, confirm);
+  if (!res.ok) {
+    back(backUrl, res.error, true);
+  }
+
+  revalidatePath(backUrl);
+  redirect(`${backUrl}?flash=${encodeURIComponent('Votre mot de passe a été défini avec succès. Bienvenue sur votre espace collaborateur !')}`);
+}
+
+export async function changePortalPasswordAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const token = text(fd, 'token', 100);
+  const currentPassword = String(fd.get('current_password') || '');
+  const newPassword = String(fd.get('new_password') || '');
+  const confirm = String(fd.get('confirm') || '');
+
+  const res = await portal.changePortalPassword(token, currentPassword, newPassword, confirm);
+  if (!res.ok) {
+    back(backUrl, res.error, true);
+  }
+
+  revalidatePath(backUrl);
+  back(backUrl, 'Votre mot de passe a été mis à jour avec succès.');
+}
+
+export async function loginPortalEmployeeAction(fd) {
+  const identifier = text(fd, 'identifier', 120);
+  const password = String(fd.get('password') || '');
+  const backUrl = '/portail/connexion';
+
+  if (!identifier || !password) {
+    back(backUrl, 'Veuillez saisir votre identifiant et votre mot de passe.', true);
+  }
+
+  const res = await portal.authenticatePortalEmployee(identifier, password);
+  if (!res.ok) {
+    back(backUrl, res.error, true);
+  }
+
+  redirect(`/portail/${res.token}?flash=${encodeURIComponent('Connexion réussie.')}`);
+}

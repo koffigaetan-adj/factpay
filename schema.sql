@@ -433,6 +433,10 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS portal_token_expires_at TIMESTAMP
 
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS portal_last_seen_at TIMESTAMPTZ;
 
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS portal_confirmed_at TIMESTAMPTZ;
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS portal_password_hash TEXT;
+
 UPDATE employees SET portal_token_expires_at = now() + interval '90 days'
      WHERE portal_token IS NOT NULL AND portal_token_expires_at IS NULL;
 

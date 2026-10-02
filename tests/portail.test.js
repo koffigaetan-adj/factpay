@@ -274,3 +274,43 @@ test("RH : les compteurs de la barre latérale reflètent les demandes en attent
   const done = await empLib.getRhNavCounts(company.id);
   assert.equal(done.conges, 0, "Une demande traitée sort du compteur");
 });
+
+test("Portail : confirmation de l'espace avec définition du mot de passe et connexion", async () => {
+  const company = await makeCompany('portail-pwd@company.tg');
+  const emp = await empLib.saveEmployee(company, {
+    first_name: 'Fafa',
+    last_name: 'Koffi',
+    email: 'fafa.koffi@company.tg',
+    base_salary: 250000,
+  });
+
+  const token = await portalLib.getOrCreatePortalToken(emp.id);
+
+  // Mot de passe trop faible refusé
+  const weak = await portalLib.confirmPortalAccount(token, 'azerty', 'azerty');
+  assert.equal(weak.ok, false);
+  assert.match(weak.error, /trop faible/);
+
+  // Mots de passe non identiques refusés
+  const mismatch = await portalLib.confirmPortalAccount(token, 'FactPay#2026', 'FactPay#2025');
+  assert.equal(mismatch.ok, false);
+  assert.match(mismatch.error, /pas identiques/);
+
+  // Définition valide du mot de passe
+  const valid = await portalLib.confirmPortalAccount(token, 'FactPay#2026', 'FactPay#2026');
+  assert.equal(valid.ok, true);
+
+  // Vérification en base : mot de passe haché et date de confirmation
+  const row = await one('SELECT portal_confirmed_at, portal_password_hash FROM employees WHERE id = $1', [emp.id]);
+  assert.ok(row.portal_confirmed_at, "Date de confirmation enregistrée");
+  assert.ok(row.portal_password_hash.startsWith('scrypt$'), "Mot de passe chiffré en scrypt");
+
+  // Connexion du collaborateur avec ses identifiants
+  const authSuccess = await portalLib.authenticatePortalEmployee('fafa.koffi@company.tg', 'FactPay#2026');
+  assert.equal(authSuccess.ok, true);
+  assert.ok(authSuccess.token);
+
+  // Mauvais mot de passe refusé
+  const authFail = await portalLib.authenticatePortalEmployee('fafa.koffi@company.tg', 'MauvaisPass#1');
+  assert.equal(authFail.ok, false);
+});

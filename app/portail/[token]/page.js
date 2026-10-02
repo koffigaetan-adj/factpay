@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
-import { getEmployeeByPortalToken, getEmployeePortalData, touchPortalAccess, portalIsExpired, TOKEN_DAYS } from '@/lib/portal';
+import { getEmployeeByPortalToken, getEmployeePortalData, touchPortalAccess, portalIsExpired, portalViewOf, TOKEN_DAYS } from '@/lib/portal';
 import PortalView from '@/components/PortalView';
+import PortalPasswordSetup from '@/components/PortalPasswordSetup';
 import Flash from '@/components/Flash';
 
 // Le portail contient le salaire net, le N° CNSS et les coordonnées de paiement du salarié :
@@ -34,6 +35,18 @@ export default async function EmployeePortalPage({ params, searchParams }) {
             : 'Ce lien d\'accès au portail collaborateur est invalide ou a été coupé. Veuillez contacter votre service des Ressources Humaines.'}
         </p>
       </div>
+    );
+  }
+
+  // Étape obligatoire : le salarié doit définir son mot de passe pour activer son espace collaborateur
+  const needsPasswordSetup = !employee.portal_confirmed_at || !employee.portal_password_hash;
+  if (needsPasswordSetup) {
+    return (
+      <PortalPasswordSetup
+        employee={portalViewOf(employee)}
+        token={token}
+        flash={<Flash searchParams={searchParams} />}
+      />
     );
   }
 

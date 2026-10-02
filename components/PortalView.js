@@ -9,7 +9,7 @@ import { getWorkCertificateText } from '@/lib/certificates';
 import Icon from '@/components/Icon';
 import Logo from '@/components/Logo';
 import OrgChartView from '@/components/OrgChartView';
-import { portalLeaveRequestAction, portalAdvanceRequestAction, portalExpenseReportAction } from '@/app/actions';
+import { portalLeaveRequestAction, portalAdvanceRequestAction, portalExpenseReportAction, changePortalPasswordAction } from '@/app/actions';
 
 function getInitials(first, last) {
   const f = (first || '').trim()[0] || '';
@@ -37,6 +37,7 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
   const [activeTab, setActiveTab] = useState('accueil');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const cur = employee?.currency || 'XOF';
@@ -98,7 +99,12 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
         {/* Logo FactPay Salarié */}
         <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Logo height={30} />
+            <img
+              src="/logo_factpay_dark.png"
+              alt="FactPay"
+              height={28}
+              style={{ height: '28px', width: 'auto', display: 'block' }}
+            />
             <span style={{
               fontSize: '11px',
               fontWeight: 700,
@@ -448,14 +454,60 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
                     <div style={{ color: '#7C3AED', display: 'grid', placeItems: 'center' }}><Icon name="file" size={16} /></div>
                     <span>Mon attestation de travail</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowPasswordModal(true); setShowProfileModal(false); }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', border: 'none',
+                      background: 'none', fontSize: '13px', cursor: 'pointer', color: '#334155',
+                      display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#F8FAFC'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                  >
+                    <div style={{ color: '#0F172A', display: 'grid', placeItems: 'center' }}><Icon name="lock" size={16} /></div>
+                    <span>Sécurité & mot de passe</span>
+                  </button>
+
+                  <div style={{ borderTop: '1px solid #F1F5F9', margin: '4px 0' }} />
+
+                  <Link
+                    href="/portail/connexion"
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', border: 'none',
+                      background: 'none', fontSize: '13px', cursor: 'pointer', color: '#DC2626', textDecoration: 'none',
+                      display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#FEF2F2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                  >
+                    <div style={{ color: '#DC2626', display: 'grid', placeItems: 'center' }}><Icon name="logout" size={16} /></div>
+                    <span>Déconnexion</span>
+                  </Link>
                 </div>
               )}
             </div>
           </div>
         </header>
 
+        {/* Overlay fond sombre sur mobile quand menu ouvert */}
+        {mobileMenuOpen && (
+          <div
+            className="payfit-portal-backdrop"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.45)',
+              backdropFilter: 'blur(3px)',
+              zIndex: 45,
+            }}
+          />
+        )}
+
         {/* CANEVAS CENTRAL AVEC COURBURE PAYFIT */}
-        <main style={{ flex: 1, padding: '24px 32px 48px', overflowY: 'auto' }}>
+        <main className="payfit-portal-main" style={{ flex: 1, padding: '24px 32px 48px', overflowY: 'auto' }}>
           {flash}
 
           {/* Pop-up Aide si ouvert */}
@@ -531,7 +583,7 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
             </div>
           ) : (
             /* CANEVAS ACTIF PAYFIT */
-            <div style={{
+            <div className="payfit-portal-canvas" style={{
               background: '#FFFFFF',
               borderRadius: '24px',
               border: '1px solid #E2E8F0',
@@ -1313,24 +1365,155 @@ export default function PortalView({ data, token, flash, expired = false, tokenD
         </main>
       </div>
 
-      <style jsx global>{`
+      {/* MODAL MODIFIER MON MOT DE PASSE */}
+      {showPasswordModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '16px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            border: '1px solid #E2E8F0',
+            padding: '28px 24px',
+            maxWidth: '440px',
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="lock" size={18} /> Modifier mon mot de passe
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '4px' }}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Mettez à jour votre mot de passe pour sécuriser l'accès à vos bulletins de paie et congés.
+            </p>
+
+            <form action={changePortalPasswordAction} className="stack" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <input type="hidden" name="token" value={token} />
+
+              {employee?.has_password && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                    Mot de passe actuel
+                  </label>
+                  <input
+                    name="current_password"
+                    type="password"
+                    required
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                  Nouveau mot de passe
+                </label>
+                <input
+                  name="new_password"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  placeholder="8 car., 1 maj, 1 min, 1 chiffre, 1 symbole"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                  Confirmer le nouveau mot de passe
+                </label>
+                <input
+                  name="confirm"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="button secondary"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="button"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .payfit-portal-main {
+          margin: 0 !important;
+          max-width: 100% !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
         @media (max-width: 900px) {
           .payfit-portal-sidebar {
             position: fixed !important;
-            transform: translateX(-100%);
-            box-shadow: 0 0 30px rgba(0,0,0,0.15);
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            height: 100vh !important;
+            z-index: 1000 !important;
+            transform: translateX(-100%) !important;
+            box-shadow: none !important;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
           }
           .payfit-portal-sidebar.is-open {
-            transform: translateX(0);
+            transform: translateX(0) !important;
+            box-shadow: 0 0 50px rgba(0,0,0,0.3) !important;
           }
           .mobile-close-btn {
-            display: block !important;
+            display: inline-flex !important;
           }
           .payfit-mobile-burger {
             display: inline-flex !important;
           }
+          .payfit-portal-main {
+            padding: 16px 12px 48px !important;
+          }
+          .payfit-portal-canvas {
+            padding: 20px 14px !important;
+            border-radius: 16px !important;
+          }
         }
-      `}</style>
+      `}} />
     </div>
   );
 }
