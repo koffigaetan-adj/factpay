@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import Icon from '@/components/Icon';
-import { logout } from '@/app/actions';
+import { logout, flushDueSends } from '@/app/actions';
 import {
   WORKSPACES,
   FOOTER_LINKS,
@@ -31,9 +31,22 @@ export default function AppShell({
   children,
 }) {
   const path = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  // Factures programmées dont l'heure vient de passer : la tâche quotidienne ne passe qu'une fois
+  // par jour, on ne veut pas laisser attendre une facture prévue pour l'après-midi. Le serveur
+  // ignore les appels répétés (au plus un par minute), ici c'est simplement pour ne pas le
+  // solliciter à chaque changement de page.
+  useEffect(() => {
+    let stop = false;
+    flushDueSends().then((r) => {
+      if (!stop && r?.sent) router.refresh();
+    }).catch(() => {});
+    return () => { stop = true; };
+  }, [path]);
 
   // Fermer la sidebar et le menu profil lors d'un changement de page
   useEffect(() => {

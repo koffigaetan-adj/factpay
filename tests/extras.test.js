@@ -145,6 +145,47 @@ test("envoi programmé à une heure précise : part quand l'heure est passée, p
   assert.equal((await one('SELECT status FROM invoices WHERE id = $1', [later])).status, 'programmee');
 });
 
+test('réservation d\'envoi : une facture déjà en cours n\'est pas réexpédiée, une réservation périmée est reprise', async () => {
+  const u = await one("INSERT INTO users (email, name, password_hash) VALUES ('trois@x.tg', 'Trois', 'x') RETURNING id");
+  const co = await one("INSERT INTO companies (owner_id, name, currency) VALUES ($1, 'Encore', 'XOF') RETURNING *", [u.id]);
+  const cl = (await one("INSERT INTO clients (company_id, name, email) VALUES ($1, 'Cli3', 'c3@x.com') RETURNING id", [co.id])).id;
+  const id = await inv.saveDraft(co, { ...base, client_id: cl, lines, send_on: new Date(Date.now() - 60_000).toISOString(), send_tz: 'Europe/Paris' });
+  assert.equal((await one('SELECT status FROM invoices WHERE id = $1', [id])).status, 'programmee');
+
+  // Envoi déjà commencé par un autre passage : la réservation empêche le doublon
+  await q('UPDATE invoices SET sending_at = now() WHERE id = $1', [id]);
+  const skipped = await inv.runScheduled();
+  assert.ok(!skipped.sent.some((r) => r.id === id), 'une facture réservée n\'est pas réexpédiée');
+  assert.equal((await one('SELECT status FROM invoices WHERE id = $1', [id])).status, 'programmee');
+
+  // Réservation vieille de plus de dix minutes : l'envoi avait été interrompu, il repart
+  await q("UPDATE invoices SET sending_at = now() - interval '20 minutes' WHERE id = $1", [id]);
+  const run = await inv.runScheduled();
+  assert.ok(run.sent.some((r) => r.id === id && r.ok), 'une réservation périmée est reprise');
+  const done = await one('SELECT status, sending_at FROM invoices WHERE id = $1', [id]);
+  assert.equal(done.status, 'envoyee');
+  assert.equal(done.sending_at, null, 'la réservation est levée une fois l\'envoi fait');
+});
+
+test('rattrapage à l\'ouverture : chaque entreprise ne traite que ses propres factures', async () => {
+  const mk = async (mail, name) => {
+    const u = await one('INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id', [mail, name, 'x']);
+    const co = await one("INSERT INTO companies (owner_id, name, currency) VALUES ($1, $2, 'XOF') RETURNING *", [u.id, name]);
+    const cl = (await one('INSERT INTO clients (company_id, name, email) VALUES ($1, $2, $3) RETURNING id', [co.id, `Cli ${name}`, `c-${mail}`])).id;
+    const id = await inv.saveDraft(co, { ...base, client_id: cl, lines, send_on: new Date(Date.now() - 60_000).toISOString(), send_tz: 'Europe/Paris' });
+    return { co, id };
+  };
+  const a = await mk('quatre@x.tg', 'Quatre');
+  const b = await mk('cinq@x.tg', 'Cinq');
+
+  const run = await inv.opportunisticScheduledCheck(a.co.id);
+  assert.ok(run.sent.some((r) => r.id === a.id && r.ok), 'la facture échue part');
+  assert.ok(!run.sent.some((r) => r.id === b.id), 'l\'autre entreprise n\'est pas touchée');
+  assert.equal((await one('SELECT status FROM invoices WHERE id = $1', [b.id])).status, 'programmee');
+  // Deuxième appel immédiat : rien n'est renvoyé, le serveur s'épargne le travail
+  assert.equal(await inv.opportunisticScheduledCheck(a.co.id), null, 'au plus un passage par minute');
+});
+
 test('heure affichée dans le fuseau choisi', () => {
   // 06:00 UTC = 08:00 à Paris en été, 06:00 à Lomé
   assert.match(frDateTime('2026-09-25T06:00:00.000Z', 'Europe/Paris'), /25 septembre 2026 à 08:00, heure de Paris/);

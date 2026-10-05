@@ -102,7 +102,8 @@ attendu_colonne(table_name, column_name) AS (VALUES
     ('leave_requests', 'document_name'),
     ('leave_requests', 'document_mime'),
     ('expense_reports', 'receipt_name'),
-    ('expense_reports', 'receipt_mime')
+    ('expense_reports', 'receipt_mime'),
+    ('invoices', 'sending_at')
 )
 SELECT 'table' AS manque, a.table_name AS objet
 FROM attendu a

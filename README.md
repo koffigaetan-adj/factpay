@@ -40,7 +40,7 @@ Logiciel de facturation en ligne, multi-comptes. Chaque personne crée son compt
 | Base de données | Postgres chez **Neon** en ligne, **PGlite** (Postgres local, dans `.data/`) sur ton ordinateur |
 | Justificatifs | **Vercel Blob** en ligne, dossier `.data/uploads` en local |
 | E-mails | **SMTP** (Gmail pour démarrer ; affichés dans la console tant que `SMTP_USER` est vide) |
-| Envoi programmé | **Vercel Cron**, chaque jour à 7 h (UTC, heure de Lomé), voir `vercel.json` |
+| Envoi programmé | **Vercel Cron**, chaque jour à 7 h (UTC, heure de Lomé), complété par un rattrapage à l'ouverture de l'application. Voir `vercel.json` et « Envois programmés » plus bas |
 | PDF | pdfkit |
 
 ## Lancer sur ton ordinateur
@@ -82,7 +82,7 @@ Dans le projet : **Storage → Create Database → Neon (Postgres)**, région **
 Gmail limite à environ 500 e-mails par jour. Pour passer plus tard à un autre service (Resend, Brevo…), il suffit de changer `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` et `SMTP_PASS`.
 
 ### 6. Les autres variables
-- `CRON_SECRET` : une longue chaîne aléatoire. Vercel l'envoie automatiquement à la tâche quotidienne.
+- `CRON_SECRET` : une longue chaîne aléatoire, **à définir dans Vercel** (le fichier `.env.local` n'est pas déployé). Vercel l'envoie automatiquement à la tâche quotidienne ; sans elle, `/api/cron` répond `401` et rien ne part.
 - `AUTH_SECRET` : une autre longue chaîne aléatoire, qui chiffre les secrets de la double authentification. À ne plus changer une fois en ligne.
 - `APP_URL` : l'adresse publique, par exemple `https://factures.ton-domaine.com`. Facultatif si tu gardes l'adresse `…vercel.app`.
 
@@ -102,6 +102,39 @@ Gmail convient pour démarrer (environ 500 e-mails par jour), mais un expéditeu
 
 ### Nom de domaine
 Dans **Settings → Domains**, ajoute ton domaine (par exemple `factures.ton-domaine.com`), puis mets à jour `APP_URL`.
+
+### Envois programmés
+
+Une facture programmée part quand son heure arrive. Le chemin suivi est toujours le même :
+
+- **À l'ouverture de l'application** : l'espace connecté déclenche un passage qui envoie ce qui vient d'échoir pour cette entreprise (au plus une fois par minute). C'est ce qui fait partir une facture prévue le jour même.
+- **Une fois par jour à 7 h UTC** : la tâche `/api/cron` rattrape tout ce qui reste, y compris les envois échoués, les factures récurrentes et les relances. Sur l'offre gratuite de Vercel les tâches ne se déclenchent qu'une fois par jour, c'est pourquoi le rattrapage à l'ouverture existe.
+
+Chaque facture est **réservée** (`invoices.sending_at`) avant l'envoi, pour que la navigation et la tâche quotidienne ne partent pas la même facture en double. Une réservation abandonnée depuis plus de dix minutes est récupérée au passage suivant.
+
+Trois réglages à vérifier en ligne, dans cet ordre :
+
+| Symptôme | Cause | Vérification |
+|---|---|---|
+| Rien ne part, jamais | `CRON_SECRET` absent de Vercel | `GET /api/cron` avec l'en-tête `Authorization: Bearer <CRON_SECRET>` : `401` = à corriger dans les variables du projet |
+| Les factures passent pour envoyées, le client ne reçoit rien | `SMTP_USER` / `SMTP_PASS` absents | un bandeau rouge le signale en haut de l'espace connecté ; la réponse de `/api/cron` contient `avertissement` |
+| Tout part tard, ou par lots | la tâche a été interrompue en cours de route | les factures réservées repartent au passage suivant ; `/api/cron` renvoie le compte des envois réussis et échoués |
+
+Le plus simple, pour vérifier d'un coup : ouvrir `/api/cron` dans le navigateur et lire la réponse.
+
+| Réponse de `/api/cron` | Signification |
+|---|---|
+| `500` + `CRON_SECRET absent des variables du projet Vercel` | la variable n'existe pas dans le projet : le cron ne peut rien faire |
+| `401 Non autorisé` | la variable existe, mais tu es allé la chercher sans l'en-tête : c'est normal, ça ne dit rien sur le cron |
+| JSON avec `sent`, `failed`… | le cron fonctionne ; ouvre-le avec l'en-tête pour déclencher un vrai passage |
+
+Pour déclencher un passage à la main (utile pour vider une facture qui vient d'échoir) :
+
+```bash
+curl -H "Authorization: Bearer <CRON_SECRET>" https://ton-domaine/api/cron
+```
+
+Puis, dans **Vercel → Logs**, filtre sur `/api/cron` : chaque passage quotidien y laisse une ligne. Si tu n'en vois aucune, la tâche ne se déclenche pas.
 
 ## Coûts
 

@@ -649,6 +649,18 @@ export async function sendInvoiceNow(fd) {
   back(`/factures/${pubId('facture', id)}`, `${r.invoice.number} envoyé à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
 
+// Envois échus : la tâche quotidienne ne passe qu'une fois par jour, ce rattrapage traite ce qui
+// vient d'échoir quand l'entreprise ouvre l'application. Appelé au navigateur pour ne pas
+// ralentir l'affichage : le décompte est renvoyé, la page se rafraîchit s'il y a eu des envois.
+export async function flushDueSends() {
+  const { company } = await auth.requireCompany();
+  const run = await invoices.opportunisticScheduledCheck(company.id);
+  if (!run) return { sent: 0 };
+  const sent = run.sent.filter((r) => r.ok).length;
+  if (sent) revalidatePath('/', 'layout');
+  return { sent, reminders: run.reminders.filter((r) => r.ok).length };
+}
+
 // Relance à la main d'une facture en attente
 export async function remindNow(fd) {
   const { company } = await auth.requireCompany();
