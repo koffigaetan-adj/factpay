@@ -799,3 +799,72 @@ export async function revokeAccountantAccess() {
   await accountant.revokeAccountantLink(company.id);
   back('/parametres?onglet=comptable', "Lien désactivé : ton comptable n'a plus accès.");
 }
+
+// ---------- Salariés ----------
+
+export async function createEmployee(fd) {
+  const { company } = await auth.requireCompany();
+  const firstName = text(fd, 'first_name', 60);
+  const lastName = text(fd, 'last_name', 60);
+  if (!firstName || !lastName) back('/salaries', 'Indique le prénom et le nom du salarié.', true);
+  const email = text(fd, 'email', 200).toLowerCase();
+  const portalEnabled = fd.get('portal_enabled') === 'on';
+  if (portalEnabled && !emailOk(email)) back('/salaries', 'Une adresse e-mail valide est requise pour activer le portail.', true);
+  await q(`INSERT INTO employees (company_id, first_name, last_name, email, phone, address, job_title, department, contract_type, hired_on, gross_salary, leave_days_per_year, notes, portal_enabled)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    [company.id, firstName, lastName, email,
+      text(fd, 'phone', 30), text(fd, 'address', 300),
+      text(fd, 'job_title', 120), text(fd, 'department', 80),
+      text(fd, 'contract_type', 20) || 'CDI',
+      text(fd, 'hired_on', 10) || null,
+      number(fd, 'gross_salary', { min: 0, max: 9999999999 }),
+      number(fd, 'leave_days_per_year', { min: 0, max: 365, fallback: 26 }),
+      text(fd, 'notes', 1000), portalEnabled]);
+  revalidatePath('/salaries');
+  back('/salaries', `Salarié ${firstName} ${lastName} ajouté.`);
+}
+
+export async function updateEmployee(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const firstName = text(fd, 'first_name', 60);
+  const lastName = text(fd, 'last_name', 60);
+  if (!firstName || !lastName) back(`/salaries/${pubId('employee', id)}`, 'Indique le prénom et le nom.', true);
+  const email = text(fd, 'email', 200).toLowerCase();
+  const portalEnabled = fd.get('portal_enabled') === 'on';
+  if (portalEnabled && !emailOk(email)) back(`/salaries/${pubId('employee', id)}`, 'Une adresse e-mail valide est requise pour activer le portail.', true);
+  const emp = await one('SELECT id FROM employees WHERE id = $1 AND company_id = $2', [id, company.id]);
+  if (!emp) back('/salaries', 'Salarié introuvable.', true);
+  await q(`UPDATE employees SET first_name=$1, last_name=$2, email=$3, phone=$4, address=$5, job_title=$6, department=$7, contract_type=$8, hired_on=$9, gross_salary=$10, leave_days_per_year=$11, notes=$12, portal_enabled=$13 WHERE id=$14 AND company_id=$15`,
+    [firstName, lastName, email,
+      text(fd, 'phone', 30), text(fd, 'address', 300),
+      text(fd, 'job_title', 120), text(fd, 'department', 80),
+      text(fd, 'contract_type', 20) || 'CDI',
+      text(fd, 'hired_on', 10) || null,
+      number(fd, 'gross_salary', { min: 0, max: 9999999999 }),
+      number(fd, 'leave_days_per_year', { min: 0, max: 365, fallback: 26 }),
+      text(fd, 'notes', 1000), portalEnabled, id, company.id]);
+  revalidatePath('/salaries');
+  revalidatePath(`/salaries/${pubId('employee', id)}`);
+  back(`/salaries/${pubId('employee', id)}`, 'Fiche mise à jour.');
+}
+
+export async function deleteEmployee(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  await q('DELETE FROM employees WHERE id = $1 AND company_id = $2', [id, company.id]);
+  revalidatePath('/salaries');
+  back('/salaries', 'Salarié supprimé.');
+}
+
+export async function sendPortalInvite(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const emp = await one('SELECT * FROM employees WHERE id = $1 AND company_id = $2', [id, company.id]);
+  if (!emp) back(`/salaries/${pubId('employee', id)}`, 'Salarié introuvable.', true);
+  if (!emp.email) back(`/salaries/${pubId('employee', id)}`, "Aucune adresse e-mail renseignée.", true);
+  // Active le portail et marque l'invitation comme envoyée
+  await q('UPDATE employees SET portal_enabled = true, portal_invite_sent_at = now() WHERE id = $1', [id]);
+  revalidatePath(`/salaries/${pubId('employee', id)}`);
+  back(`/salaries/${pubId('employee', id)}`, `Invitation envoyée à ${emp.email}.`);
+}

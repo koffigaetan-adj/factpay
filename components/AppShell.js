@@ -18,6 +18,7 @@ const ACTIVITY = [
 ];
 const MANAGEMENT = [
   ['/clients', 'Clients', 'clients'],
+  ['/salaries', 'Salariés', 'people'],
   ['/documents', 'Documents', 'documents'],
   ['/parametres', 'Paramètres', 'settings'],
 ];
