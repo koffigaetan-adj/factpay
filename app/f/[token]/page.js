@@ -27,6 +27,11 @@ export default async function Page({ params, searchParams }) {
   const word = quote ? 'Devis' : 'Facture';
   const cur = inv.currency;
   const withAlt = !!(inv.alt_currency && inv.alt_rate);
+  let enabledPayKeys = null;
+  if (inv.payment_methods) {
+    try { enabledPayKeys = JSON.parse(inv.payment_methods); } catch {}
+  }
+  const payItems = paymentItems(co, enabledPayKeys);
 
   // Chaque montant existe dans les deux devises ; le sélecteur choisit lequel est visible
   const Amount = ({ n }) => (withAlt
@@ -100,11 +105,21 @@ export default async function Page({ params, searchParams }) {
           <address>
             {logoUrl(co) && <img src={logoUrl(co)} alt={co.name} className="co-logo" />}
             <strong>{co.name}</strong>
-            {[co.address, co.phone, co.email, co.legal_ids].filter(Boolean).map((v) => <span key={v}><br />{v}</span>)}
+            {[co.address, co.phone, co.email, co.legal_ids].filter(Boolean).flatMap((v) =>
+              String(v).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/Ð/g, '').split('\n').filter(Boolean)
+            ).map((line, idx) => (
+              <span key={idx}><br />{line}</span>
+            ))}
           </address>
         </header>
         {withAlt && <CurrencySwitch main={short(cur)} alt={short(inv.alt_currency)} />}
-        <p className="billed"><span className="sub">{quote ? 'Destinataire' : 'Facturé à'}</span><strong>{inv.client_name}</strong>{inv.client_address && <><br />{inv.client_address}</>}</p>
+        <p className="billed">
+          <span className="sub">{quote ? 'Destinataire' : 'Facturé à'}</span>
+          <strong>{inv.client_name}</strong>
+          {inv.client_address && String(inv.client_address).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/Ð/g, '').split('\n').filter(Boolean).map((line, idx) => (
+            <span key={idx}><br />{line}</span>
+          ))}
+        </p>
         {inv.title && <p><strong>{inv.title}</strong></p>}
         <div className="scroll">
           <table>
@@ -145,12 +160,53 @@ export default async function Page({ params, searchParams }) {
             {' '}Taux : {rateLabel(cur, inv.alt_currency, inv.alt_rate)}.
           </p>
         )}
-        {!quote && inv.status !== 'annulee' && <ul className="bank">
-          {paymentItems(co).map((p) => (
-            <li key={p.label + p.value} className="pay-item"><BrandBadge name={p.brand} size={26} /><span>{p.label} : <strong>{p.value}</strong></span></li>
-          ))}
-          <li>Référence à indiquer : <strong>{inv.number}</strong></li>
-        </ul>}
+        {!quote && inv.status !== 'annulee' && payItems.length > 0 && (
+          <div className="sheet-payment" aria-labelledby="pay-title">
+            <h2 id="pay-title" className="pay-heading">Moyens de paiement</h2>
+            <div className="scroll">
+              <table className="pay-table">
+                <thead>
+                  <tr>
+                    <th>Moyen de paiement</th>
+                    <th>Coordonnées</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payItems.map((p) => (
+                    <tr key={p.label + p.value}>
+                      <td className="pay-td-brand">
+                        <div className="pay-brand-cell">
+                          <BrandBadge name={p.brand} size={24} />
+                          <strong>{p.label}</strong>
+                        </div>
+                      </td>
+                      <td className="pay-td-details">
+                        {p.details && p.details.length > 0 ? (
+                          <div className="pay-details-list">
+                            {p.details.map(([k, v]) => (
+                              <div key={k} className="pay-detail-row">
+                                <span className="pay-detail-label">{k} :</span>
+                                <strong className="pay-detail-val">{v}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <strong className="pay-detail-val">{p.value}</strong>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {inv.number && (
+              <div className="pay-ref">
+                <span>Référence à indiquer lors du règlement :</span>
+                <strong>{inv.number}</strong>
+              </div>
+            )}
+          </div>
+        )}
         {inv.notes && <p className="muted">{inv.notes}</p>}
         <p className="pdf-link"><a href={`/f/${inv.token}/pdf`}>Télécharger {quote ? 'le devis' : 'la facture'} en PDF</a></p>
       </article>

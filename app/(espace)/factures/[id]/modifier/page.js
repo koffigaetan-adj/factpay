@@ -8,6 +8,7 @@ import { q } from '@/lib/db';
 import { getInvoice, EDITABLE } from '@/lib/invoices';
 import { addDays, today } from '@/lib/dates';
 import { pubId, idFrom } from '@/lib/ids';
+import { paymentItems } from '@/lib/payment';
 
 export const metadata = { title: 'Modifier la facture' };
 
@@ -30,6 +31,7 @@ export default async function Page({ params, searchParams }) {
         invoice={invoice}
         defaultCurrency={company.currency}
         defaultVat={company.default_vat_rate}
+        availablePayMethods={paymentItems(company)}
         tomorrow={addDays(today(), 1)}
         thisMonth={today().slice(0, 7)}
       />

@@ -3,5 +3,7 @@ node_modules/
 .data/
 .env
 .env.local
+.env.*
 .vercel
 .next-check/
+.next-dev/

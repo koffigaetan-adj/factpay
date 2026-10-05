@@ -7,8 +7,8 @@ delete process.env.BLOB_READ_WRITE_TOKEN;
 
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
+import { existsSync } from 'fs';
+import path from 'path';
 
 let one, docs, c, clientId, otherClient;
 before(async () => {

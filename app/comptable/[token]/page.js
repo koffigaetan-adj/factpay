@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Logo from '@/components/Logo';
 import YearReport from '@/components/YearReport';
+import Icon from '@/components/Icon';
 import { companyByAccountantToken } from '@/lib/accountant';
 import { listInvoices } from '@/lib/invoices';
 import { yearReport, yearsOf } from '@/lib/report';
@@ -32,7 +33,10 @@ export default async function Page({ params, searchParams }) {
           <p className="hint" style={{ margin: '6px 0 0' }}>Accès comptable en lecture seule. Montants du récapitulatif en {company.currency}.</p>
         </div>
         <div className="actions">
-          <a className="button secondary" href={`${base}/export?annee=${year}`}>Factures {year} (Excel)</a>
+          <a className="button secondary" href={`${base}/export?annee=${year}`}>
+            <Icon name="download" size={16} />
+            Factures {year} (Excel)
+          </a>
         </div>
       </div>
 

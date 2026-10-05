@@ -1,13 +1,13 @@
 'use server';
 
-import { redirect } from 'next/navigation';
+import { redirect, unstable_rethrow } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { q, one } from '@/lib/db';
 import * as auth from '@/lib/auth';
 import * as invoices from '@/lib/invoices';
 import { sendMail, mailTestMode } from '@/lib/mail';
-import { verifyEmail, resetPasswordEmail, changeEmailEmail, loginCodeEmail, securityNoticeEmail, withImages } from '@/lib/emails';
+import { verifyEmail, resetPasswordEmail, changeEmailEmail, loginCodeEmail, securityNoticeEmail, employeePortalInvitationEmail, withImages } from '@/lib/emails';
 import * as twofa from '@/lib/twofa';
 import { newSecret, verifyCode } from '@/lib/totp';
 import { saveFile, deleteFile } from '@/lib/storage';
@@ -17,7 +17,15 @@ import { passwordProblem } from '@/lib/password';
 import { cleanPeriod, periodHours } from '@/lib/period';
 import * as documents from '@/lib/documents';
 import * as accountant from '@/lib/accountant';
-import { COUNTRIES, cleanMobiles } from '@/lib/payment';
+import * as employees from '@/lib/employees';
+import * as payroll from '@/lib/payroll';
+import { payslipLinesFromForm } from '@/lib/rh-constants';
+import * as leaves from '@/lib/leaves';
+import * as advances from '@/lib/advances';
+import * as expenses from '@/lib/expenses';
+import * as portal from '@/lib/portal';
+import { listNotifications, markAllRead } from '@/lib/notifications';
+import { COUNTRIES, cleanMobiles, localNumber, formatNumber } from '@/lib/payment';
 import { AUTH_APPS } from '@/lib/authenticators';
 import { pubId } from '@/lib/ids';
 import { signFlash } from '@/lib/flash';
@@ -28,13 +36,22 @@ import { matchesType } from '@/lib/filetype';
 // Revient sur une page avec un message (?ok=… ou ?erreur=…), signé pour qu'un lien fabriqué à la
 // main (par exemple pour une arnaque à l'adresse « ?erreur=Compte suspendu, appelez… ») ne puisse
 // pas afficher un message qui n'a pas été produit par ce code.
+//
+// `redirect()` ne rend pas la main : Next lève une exception de contrôle porteuse d'un digest
+// « NEXT_REDIRECT ». Appelée depuis un `try`, cette exception est donc rattrapée par le `catch`
+// voisin, qui la Traitait comme une panne : le journal recevait « NEXT_REDIRECT », et surtout
+// l'utilisateur repartait sur « ?erreur=… » alors que son enregistrement venait de réussir.
+//
+// C'est pourquoi chaque `catch` appelle `unstable_rethrow(err)` avant de quoi que ce soit :
+// cette fonction relaîche à Next les exceptions de contrôle et laisse passer les vraies erreurs,
+// que le `catch` peut alors journaliser et signaler comme avant.
 function back(path, message, error = false) {
   const sep = path.includes('?') ? '&' : '?';
   const kind = error ? 'erreur' : 'ok';
   redirect(`${path}${sep}${kind}=${encodeURIComponent(message)}&s=${signFlash(kind, message)}`);
 }
 
-const text = (fd, key, max = 300) => String(fd.get(key) ?? '').trim().slice(0, max);
+const text = (fd, key, max = 300) => String(fd.get(key) ?? '').replace(/Ð/g, '').trim().slice(0, max);
 const number = (fd, key, { min = 0, max = Infinity, fallback = 0 } = {}) => {
   const n = Number(String(fd.get(key) ?? '').replace(',', '.'));
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
@@ -75,6 +92,7 @@ export async function signup(fd) {
   try {
     await sendVerification({ id: user.id, email, first_name: firstName });
   } catch (err) {
+    unstable_rethrow(err);
     console.error('Lien de confirmation non envoyé :', err.message);
     back('/confirmer-email', "L'e-mail de confirmation n'a pas pu partir. Clique sur « Renvoyer le lien ».", true);
   }
@@ -90,6 +108,7 @@ export async function resendVerification() {
   try {
     await sendVerification(user);
   } catch (err) {
+    unstable_rethrow(err);
     back('/confirmer-email', `L'envoi a échoué : ${safeError(err)}`, true);
   }
   back('/confirmer-email', `Nouveau lien envoyé à ${user.email}.${mailTestMode() ? ' (mode test : lien affiché dans la console du serveur)' : ''}`);
@@ -133,6 +152,7 @@ async function openSessionOrAsk2fa(user, then = '/tableau-de-bord') {
     try {
       await sendMail({ to: user.email, ...(await withImages(loginCodeEmail(user.first_name || user.name, emailCode))) });
     } catch (err) {
+      unstable_rethrow(err);
       back('/connexion/verification', `Le code n'a pas pu partir : ${safeError(err)}. Clique sur « Renvoyer le code ».`, true);
     }
   }
@@ -163,6 +183,7 @@ export async function resendLoginCode() {
   try {
     await sendMail({ to: ch.email, ...(await withImages(loginCodeEmail(ch.first_name || ch.name, code))) });
   } catch (err) {
+    unstable_rethrow(err);
     back('/connexion/verification', `Le code n'a pas pu partir : ${safeError(err)}`, true);
   }
   back('/connexion/verification', `Nouveau code envoyé à ${ch.email}.${mailTestMode() ? ' (mode test : code affiché dans la console)' : ''}`);
@@ -385,6 +406,12 @@ export async function saveCompany(fd) {
   const from = inSettings ? `/parametres?onglet=${sections[0] || 'entreprise'}` : '/bienvenue';
   const existing = await one('SELECT id, country FROM companies WHERE owner_id = $1', [user.id]);
   if ((sections.includes('entreprise') || !existing) && !c.name) back(from, "Le nom de l'entreprise est obligatoire.", true);
+  if (sections.includes('entreprise') && c.phone) {
+    // Le champ n'affiche que les chiffres locaux (l'indicatif est à côté) : on les recompose ici,
+    // pour garder le même format qu'avant (« +228 XX XX XX XX ») partout où le numéro est affiché.
+    const local = localNumber(c.phone, c.country);
+    c.phone = local ? formatNumber(local, c.country) : c.phone;
+  }
   if (sections.includes('paiement')) {
     let rawMobiles = [];
     try { rawMobiles = JSON.parse(String(fd.get('mobile_accounts') || '[]')); } catch { /* liste invalide */ }
@@ -422,6 +449,7 @@ export async function requestEmailChange(fd) {
   try {
     await sendMail({ to: email, ...(await withImages(changeEmailEmail(user.first_name || user.name, `${appUrl()}/confirmer/${token}`))) });
   } catch (err) {
+    unstable_rethrow(err);
     back(tab, `Le lien n'a pas pu partir : ${safeError(err)}`, true);
   }
   back(tab, `Lien de confirmation envoyé à ${email}. Ton adresse changera quand tu l'auras ouvert.${mailTestMode() ? ' (mode test : lien affiché dans la console)' : ''}`);
@@ -570,6 +598,17 @@ export async function saveInvoice(fd) {
     back(formPath, `Indique le taux de change : 1 ${currency} = combien de ${alt} ?`, true);
   }
 
+  let paymentMethods = null;
+  const pmRaw = fd.get('payment_methods');
+  if (pmRaw !== null && pmRaw !== undefined && typeof pmRaw === 'string') {
+    try {
+      const parsed = JSON.parse(pmRaw);
+      if (Array.isArray(parsed)) {
+        paymentMethods = JSON.stringify(parsed.filter((x) => typeof x === 'string').map((s) => s.slice(0, 100)).slice(0, 20));
+      }
+    } catch { /* invalide */ }
+  }
+
   let invoiceId;
   try {
     invoiceId = await invoices.saveDraft(company, {
@@ -579,9 +618,11 @@ export async function saveInvoice(fd) {
       withholding_rate: number(fd, 'withholding_rate', { max: 100 }),
       withholding_label: text(fd, 'withholding_label', 80) || 'Retenue à la source',
       period,
+      payment_methods: paymentMethods,
       notes: text(fd, 'notes', 1000), send_on: sendOn, send_tz: sendTz, doc_type: docType,
     });
   } catch (err) {
+    unstable_rethrow(err);
     back(formPath, err.message, true);
   }
 
@@ -592,7 +633,8 @@ export async function saveInvoice(fd) {
     back(`/factures/${pubId('facture', invoiceId)}`, `${word} ${r.invoice.number} envoyé${docType === 'facture' ? 'e' : ''} à ${r.invoice.client_email}.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
   }
   revalidatePath('/', 'layout');
-  back(`/factures/${pubId('facture', invoiceId)}`, intent === 'programmer' ? 'Envoi programmé.' : 'Brouillon enregistré.');
+  const savedMessage = intent === 'programmer' ? 'Envoi programmé.' : id ? 'Modifications enregistrées.' : 'Brouillon enregistré.';
+  back(`/factures/${pubId('facture', invoiceId)}`, savedMessage);
 }
 
 export async function sendInvoiceNow(fd) {
@@ -676,9 +718,11 @@ export async function resendReceipt(fd) {
 export async function cancelInvoice(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
-  const r = await invoices.cancelInvoice(company, id, text(fd, 'reason', 500));
+  const notify = fd.get('notify') === 'on';
+  const r = await invoices.cancelInvoice(company, id, text(fd, 'reason', 500), { notify });
   revalidatePath('/', 'layout');
   if (!r.cancelled) back(`/factures/${pubId('facture', id)}`, "Cette facture ne peut plus être annulée : le client a déjà signalé ou réglé son paiement.", true);
+  if (r.skipped) back(`/factures/${pubId('facture', id)}`, "Facture annulée et avoir émis. Le client n'a pas été prévenu.");
   if (!r.sent) back(`/factures/${pubId('facture', id)}`, `Facture annulée, mais le client n'a pas pu être prévenu : ${r.error}`, true);
   back(`/factures/${pubId('facture', id)}`, `Facture annulée. ${r.invoice.client_email} a été prévenu.${mailTestMode() ? ' (mode test : e-mail affiché dans la console)' : ''}`);
 }
@@ -800,71 +844,525 @@ export async function revokeAccountantAccess() {
   back('/parametres?onglet=comptable', "Lien désactivé : ton comptable n'a plus accès.");
 }
 
-// ---------- Salariés ----------
+// ---------- Notifications push ----------
+// Appelées directement en JavaScript (pas par un <form>) depuis PushToggle : pas de redirection,
+// juste un enregistrement ou une suppression en base.
 
-export async function createEmployee(fd) {
-  const { company } = await auth.requireCompany();
-  const firstName = text(fd, 'first_name', 60);
-  const lastName = text(fd, 'last_name', 60);
-  if (!firstName || !lastName) back('/salaries', 'Indique le prénom et le nom du salarié.', true);
-  const email = text(fd, 'email', 200).toLowerCase();
-  const portalEnabled = fd.get('portal_enabled') === 'on';
-  if (portalEnabled && !emailOk(email)) back('/salaries', 'Une adresse e-mail valide est requise pour activer le portail.', true);
-  await q(`INSERT INTO employees (company_id, first_name, last_name, email, phone, address, job_title, department, contract_type, hired_on, gross_salary, leave_days_per_year, notes, portal_enabled)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-    [company.id, firstName, lastName, email,
-      text(fd, 'phone', 30), text(fd, 'address', 300),
-      text(fd, 'job_title', 120), text(fd, 'department', 80),
-      text(fd, 'contract_type', 20) || 'CDI',
-      text(fd, 'hired_on', 10) || null,
-      number(fd, 'gross_salary', { min: 0, max: 9999999999 }),
-      number(fd, 'leave_days_per_year', { min: 0, max: 365, fallback: 26 }),
-      text(fd, 'notes', 1000), portalEnabled]);
-  revalidatePath('/salaries');
-  back('/salaries', `Salarié ${firstName} ${lastName} ajouté.`);
+export async function subscribePush(fd) {
+  const user = await auth.requireUser();
+  let sub;
+  try { sub = JSON.parse(String(fd.get('subscription') || '')); } catch { return { ok: false }; }
+  if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) return { ok: false };
+  await q(`INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4)
+    ON CONFLICT (endpoint) DO UPDATE SET user_id = $1, p256dh = $3, auth = $4`,
+    [user.id, sub.endpoint, sub.keys.p256dh, sub.keys.auth]);
+  return { ok: true };
 }
 
-export async function updateEmployee(fd) {
-  const { company } = await auth.requireCompany();
-  const id = Number(fd.get('id'));
-  const firstName = text(fd, 'first_name', 60);
-  const lastName = text(fd, 'last_name', 60);
-  if (!firstName || !lastName) back(`/salaries/${pubId('employee', id)}`, 'Indique le prénom et le nom.', true);
-  const email = text(fd, 'email', 200).toLowerCase();
-  const portalEnabled = fd.get('portal_enabled') === 'on';
-  if (portalEnabled && !emailOk(email)) back(`/salaries/${pubId('employee', id)}`, 'Une adresse e-mail valide est requise pour activer le portail.', true);
-  const emp = await one('SELECT id FROM employees WHERE id = $1 AND company_id = $2', [id, company.id]);
-  if (!emp) back('/salaries', 'Salarié introuvable.', true);
-  await q(`UPDATE employees SET first_name=$1, last_name=$2, email=$3, phone=$4, address=$5, job_title=$6, department=$7, contract_type=$8, hired_on=$9, gross_salary=$10, leave_days_per_year=$11, notes=$12, portal_enabled=$13 WHERE id=$14 AND company_id=$15`,
-    [firstName, lastName, email,
-      text(fd, 'phone', 30), text(fd, 'address', 300),
-      text(fd, 'job_title', 120), text(fd, 'department', 80),
-      text(fd, 'contract_type', 20) || 'CDI',
-      text(fd, 'hired_on', 10) || null,
-      number(fd, 'gross_salary', { min: 0, max: 9999999999 }),
-      number(fd, 'leave_days_per_year', { min: 0, max: 365, fallback: 26 }),
-      text(fd, 'notes', 1000), portalEnabled, id, company.id]);
-  revalidatePath('/salaries');
-  revalidatePath(`/salaries/${pubId('employee', id)}`);
-  back(`/salaries/${pubId('employee', id)}`, 'Fiche mise à jour.');
+export async function unsubscribePush(fd) {
+  const user = await auth.requireUser();
+  const endpoint = text(fd, 'endpoint', 500);
+  if (endpoint) await q('DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2', [user.id, endpoint]);
+  return { ok: true };
 }
 
-export async function deleteEmployee(fd) {
-  const { company } = await auth.requireCompany();
-  const id = Number(fd.get('id'));
-  await q('DELETE FROM employees WHERE id = $1 AND company_id = $2', [id, company.id]);
-  revalidatePath('/salaries');
-  back('/salaries', 'Salarié supprimé.');
+// ---------- La cloche de notifications ----------
+// Appelées en JavaScript direct depuis NotificationBell (pas de <form>, pas de redirection).
+
+export async function listMyNotifications() {
+  const user = await auth.requireUser();
+  return listNotifications(user.id);
 }
 
-export async function sendPortalInvite(fd) {
+export async function markNotificationsRead() {
+  const user = await auth.requireUser();
+  await markAllRead(user.id);
+}
+
+// ---------- Ressources Humaines : Salariés ----------
+
+export async function saveEmployeeAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnTo = String(fd.get('return_to') || '').trim() || (fd.get('id') ? `/employes/${fd.get('id')}` : '/employes');
+  try {
+    const email = text(fd, 'email', 150);
+    const activatePortal = fd.get('activate_portal') === '1' || fd.get('activate_portal') === 'on' || fd.get('activate_portal') === 'true';
+
+    if (activatePortal && !email) {
+      throw new Error("L'adresse e-mail est obligatoire pour activer l'espace en ligne du salarié.");
+    }
+
+    const emp = await employees.saveEmployee(company, {
+      id: fd.get('id') ? Number(fd.get('id')) : null,
+      first_name: text(fd, 'first_name', 80),
+      last_name: text(fd, 'last_name', 80),
+      email: email,
+      phone: text(fd, 'phone', 40),
+      job_title: text(fd, 'job_title', 100),
+      department: text(fd, 'department', 80),
+      contract_type: text(fd, 'contract_type', 30),
+      category: text(fd, 'category', 50),
+      hire_date: text(fd, 'hire_date', 20),
+      end_date: text(fd, 'end_date', 20),
+      cnss_number: text(fd, 'cnss_number', 50),
+      id_card_number: text(fd, 'id_card_number', 50),
+      base_salary: number(fd, 'base_salary'),
+      payment_method: text(fd, 'payment_method', 30) || 'bank',
+      payment_details: text(fd, 'payment_details', 100),
+      status: text(fd, 'status', 20),
+      leave_balance: fd.has('leave_balance') && fd.get('leave_balance') !== '' ? number(fd, 'leave_balance', { fallback: 0 }) : undefined,
+    });
+
+    let portalActivated = false;
+    if (activatePortal && email) {
+      const token = await portal.getOrCreatePortalToken(emp.id, { force: false });
+      portalActivated = true;
+      const portalUrl = `${appUrl()}/portail/${token}`;
+      try {
+        await sendMail({
+          to: emp.email,
+          replyTo: company.email || undefined,
+          ...(await withImages(employeePortalInvitationEmail({ employee: emp, company, portalUrl }), company)),
+        });
+      } catch (mailErr) {
+        console.error('Erreur envoi email portail salarié:', mailErr);
+      }
+    }
+
+    revalidatePath('/employes');
+    revalidatePath(`/employes/${emp.id}`);
+    revalidatePath('/', 'layout');
+
+    const successMsg = portalActivated
+      ? `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès et invitation envoyée à ${emp.email}.`
+      : `Salarié ${emp.first_name} ${emp.last_name} enregistré avec succès.`;
+
+    back(returnTo, successMsg);
+  } catch (err) {
+    unstable_rethrow(err);
+    back(returnTo, safeError(err), true);
+  }
+}
+
+export async function deleteEmployeeAction(fd) {
   const { company } = await auth.requireCompany();
   const id = Number(fd.get('id'));
-  const emp = await one('SELECT * FROM employees WHERE id = $1 AND company_id = $2', [id, company.id]);
-  if (!emp) back(`/salaries/${pubId('employee', id)}`, 'Salarié introuvable.', true);
-  if (!emp.email) back(`/salaries/${pubId('employee', id)}`, "Aucune adresse e-mail renseignée.", true);
-  // Active le portail et marque l'invitation comme envoyée
-  await q('UPDATE employees SET portal_enabled = true, portal_invite_sent_at = now() WHERE id = $1', [id]);
-  revalidatePath(`/salaries/${pubId('employee', id)}`);
-  back(`/salaries/${pubId('employee', id)}`, `Invitation envoyée à ${emp.email}.`);
+  try {
+    const res = await employees.deleteEmployee(company.id, id);
+    revalidatePath('/employes');
+    if (res.archived) {
+      back('/employes', 'Salarié archivé (ses bulletins de paie passés ont été conservés).');
+    } else {
+      back('/employes', 'Salarié supprimé.');
+    }
+  } catch (err) {
+    unstable_rethrow(err);
+    back('/employes', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Fiches de Paie ----------
+
+export async function savePayslipAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = fd.get('id') ? Number(fd.get('id')) : null;
+  // En modification, une erreur doit renvoyer vers le formulaire qui a échoué, pas vers la
+  // liste : c'est là que se trouve la faute à corriger.
+  const backTo = id ? `/fiches-de-paie/${id}/modifier` : '/fiches-de-paie';
+
+  try {
+    const p = await payroll.savePayslip(company, {
+      id,
+      employee_id: Number(fd.get('employee_id')),
+      period_month: number(fd, 'period_month', { min: 1, max: 12 }),
+      period_year: number(fd, 'period_year', { min: 2000, max: 2100 }),
+      issue_date: text(fd, 'issue_date', 20),
+      payment_date: text(fd, 'payment_date', 20),
+      base_salary: number(fd, 'base_salary'),
+      seniority_bonus: number(fd, 'seniority_bonus'),
+      transport_allowance: number(fd, 'transport_allowance'),
+      function_allowance: number(fd, 'function_allowance'),
+      other_allowances: number(fd, 'other_allowances'),
+      overtime_amount: number(fd, 'overtime_amount'),
+      cnss_employee_rate: number(fd, 'cnss_employee_rate', { fallback: 4.0 }),
+      tax_salary_amount: number(fd, 'tax_salary_amount'),
+      salary_advances: number(fd, 'salary_advances'),
+      other_deductions: number(fd, 'other_deductions'),
+      cnss_employer_rate: number(fd, 'cnss_employer_rate', { fallback: 17.5 }),
+      status: text(fd, 'status', 20),
+      payment_method: text(fd, 'payment_method', 30),
+      payment_reference: text(fd, 'payment_reference', 100),
+      notes: text(fd, 'notes', 500),
+      lines: payslipLinesFromForm(fd),
+    });
+    revalidatePath('/fiches-de-paie');
+    revalidatePath('/', 'layout');
+    back(`/fiches-de-paie/${p.id}`, `Bulletin ${p.number} enregistré.`);
+  } catch (err) {
+    unstable_rethrow(err);
+    back(backTo, safeError(err), true);
+  }
+}
+
+export async function generateMonthlyPayslipsAction(fd) {
+  const { company } = await auth.requireCompany();
+  const year = number(fd, 'period_year', { min: 2000, max: 2100, fallback: new Date().getUTCFullYear() });
+  const month = number(fd, 'period_month', { min: 1, max: 12, fallback: new Date().getUTCMonth() + 1 });
+  try {
+    const list = await payroll.generateMonthlyPayslips(company, { year, month });
+    revalidatePath('/fiches-de-paie');
+    if (!list.length) {
+      back(`/fiches-de-paie?annee=${year}&mois=${month}`, 'Tous les bulletins de ce mois ont déjà été créés.');
+    } else {
+      back(`/fiches-de-paie?annee=${year}&mois=${month}`, `${list.length} bulletin(s) de paie généré(s) pour ${payroll.MONTHS[month - 1]} ${year}.`);
+    }
+  } catch (err) {
+    unstable_rethrow(err);
+    back('/fiches-de-paie', safeError(err), true);
+  }
+}
+
+export async function markPayslipPaidAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const payment_method = text(fd, 'payment_method', 30);
+  const payment_reference = text(fd, 'payment_reference', 100);
+  const payment_date = text(fd, 'payment_date', 20);
+  try {
+    await payroll.markPayslipPaid(company, id, { payment_date, payment_method, payment_reference });
+    revalidatePath('/fiches-de-paie');
+    back(`/fiches-de-paie/${id}`, 'Bulletin marqué comme payé.');
+  } catch (err) {
+    unstable_rethrow(err);
+    back(`/fiches-de-paie/${id}`, safeError(err), true);
+  }
+}
+
+export async function deletePayslipAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  try {
+    await payroll.deletePayslip(company.id, id);
+    revalidatePath('/fiches-de-paie');
+    back('/fiches-de-paie', 'Bulletin de paie supprimé.');
+  } catch (err) {
+    unstable_rethrow(err);
+    back('/fiches-de-paie', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Congés & Absences ----------
+
+export async function createLeaveRequestAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnUrl = text(fd, 'return_url', 200) || '/conges';
+  try {
+    const r = await leaves.createLeaveRequest(company.id, {
+      employee_id: Number(fd.get('employee_id')),
+      type: text(fd, 'type', 40),
+      start_date: text(fd, 'start_date', 20),
+      end_date: text(fd, 'end_date', 20),
+      days_count: number(fd, 'days_count', { min: 0.5, fallback: 1 }),
+      reason: text(fd, 'reason', 300),
+    }, fd.get('justificatif'));
+    if (r && r.error) back(returnUrl, r.error, true);
+    revalidatePath(returnUrl);
+    revalidatePath('/', 'layout');
+    back(returnUrl, 'Demande de congé enregistrée avec succès.');
+  } catch (err) {
+    unstable_rethrow(err);
+    back(returnUrl, safeError(err), true);
+  }
+}
+
+export async function reviewLeaveRequestAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const status = text(fd, 'status', 30);
+  const review_note = text(fd, 'review_note', 300);
+  try {
+    await leaves.reviewLeaveRequest(company.id, id, { status, review_note });
+    revalidatePath('/conges');
+    back('/conges', `Demande de congé ${status === 'approuve' ? 'approuvée' : 'refusée'}.`);
+  } catch (err) {
+    unstable_rethrow(err);
+    back('/conges', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Acomptes sur Salaire ----------
+
+export async function requestSalaryAdvanceAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnUrl = text(fd, 'return_url', 200) || '/acomptes';
+  try {
+    await advances.requestSalaryAdvance(company.id, {
+      employee_id: Number(fd.get('employee_id')),
+      amount: number(fd, 'amount'),
+      reason: text(fd, 'reason', 300),
+      period_month: number(fd, 'period_month'),
+      period_year: number(fd, 'period_year'),
+      payment_method: text(fd, 'payment_method', 30),
+    });
+    revalidatePath(returnUrl);
+    revalidatePath('/', 'layout');
+    back(returnUrl, 'Demande d’acompte soumise avec succès.');
+  } catch (err) {
+    unstable_rethrow(err);
+    back(returnUrl, safeError(err), true);
+  }
+}
+
+export async function reviewSalaryAdvanceAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const status = text(fd, 'status', 30);
+  const payment_method = text(fd, 'payment_method', 30);
+  const payment_reference = text(fd, 'payment_reference', 100);
+  try {
+    await advances.reviewSalaryAdvance(company.id, id, { status, payment_method, payment_reference });
+    revalidatePath('/acomptes');
+    back('/acomptes', `Demande d’acompte mise à jour (${status}).`);
+  } catch (err) {
+    unstable_rethrow(err);
+    back('/acomptes', safeError(err), true);
+  }
+}
+
+// ---------- Ressources Humaines : Notes de Frais ----------
+
+export async function createExpenseReportAction(fd) {
+  const { company } = await auth.requireCompany();
+  const returnUrl = text(fd, 'return_url', 200) || '/notes-de-frais';
+  try {
+    const r = await expenses.createExpenseReport(company.id, {
+      employee_id: Number(fd.get('employee_id')),
+      title: text(fd, 'title', 100),
+      amount: number(fd, 'amount'),
+      category: text(fd, 'category', 40),
+      expense_date: text(fd, 'expense_date', 20),
+    }, fd.get('recu'));
+    if (r && r.error) back(returnUrl, r.error, true);
+    revalidatePath(returnUrl);
+    revalidatePath('/', 'layout');
+    back(returnUrl, 'Note de frais enregistrée avec succès.');
+  } catch (err) {
+    unstable_rethrow(err);
+    back(returnUrl, safeError(err), true);
+  }
+}
+
+export async function reviewExpenseReportAction(fd) {
+  const { company } = await auth.requireCompany();
+  const id = Number(fd.get('id'));
+  const status = text(fd, 'status', 30);
+  const payment_reference = text(fd, 'payment_reference', 100);
+  try {
+    await expenses.reviewExpenseReport(company.id, id, { status, payment_reference });
+    revalidatePath('/notes-de-frais');
+    back('/notes-de-frais', `Note de frais mise à jour (${status}).`);
+  } catch (err) {
+    unstable_rethrow(err);
+    back('/notes-de-frais', safeError(err), true);
+  }
+}
+
+// ---------- Portail Salarié : lien d'accès, révocation, et demandes du salarié ----------
+
+// Page de retour. L'activation se fait aussi bien depuis la fiche que depuis la liste des
+// salariés : sans cela, le bouton de la liste renvoyait le propriétaire sur la fiche, ce qui
+// annulait l'intérêt d'agir sans quitter la liste. On n'accepte qu'un chemin interne.
+function portalReturnPath(fd, employeeId) {
+  const wanted = String(fd.get('return_to') || '').trim();
+  return wanted.startsWith('/') && !wanted.startsWith('//') ? wanted : `/employes/${employeeId}`;
+}
+
+// Crée le lien d'accès, ou le renouvelle. Le bouton « Régénérer le lien » passe `force` : sans
+// cela la fonction renvoyait le jeton déjà en base et le bouton ne coupait rien, un lien fuite
+// restant valable pour toujours.
+export async function generateEmployeePortalTokenAction(fd) {
+  const { company } = await auth.requireCompany();
+  const employeeId = Number(fd.get('employee_id'));
+  const to = portalReturnPath(fd, employeeId);
+  if (!(await employees.getEmployee(company.id, employeeId))) back(to, 'Salarié introuvable.', true);
+  const wasActive = Boolean((await employees.getEmployee(company.id, employeeId)).portal_token);
+  try {
+    const token = await portal.getOrCreatePortalToken(employeeId, { force: fd.get('regen') === '1' });
+    const emp = await employees.getEmployee(company.id, employeeId);
+    if (emp?.email) {
+      const portalUrl = `${appUrl()}/portail/${token}`;
+      try {
+        await sendMail({
+          to: emp.email,
+          replyTo: company.email || undefined,
+          ...(await withImages(employeePortalInvitationEmail({ employee: emp, company, portalUrl }), company)),
+        });
+      } catch (mailErr) {
+        console.error('Erreur envoi email portail salarié:', mailErr);
+      }
+    }
+    revalidatePath(`/employes/${employeeId}`);
+    revalidatePath('/employes');
+    revalidatePath('/', 'layout');
+    back(to, wasActive
+      ? 'Ancien lien coupé et nouveau lien créé. L\'ancien ne fonctionne plus.'
+      : `Lien d'accès créé : il donne accès aux bulletins de paie et reste valable ${portal.TOKEN_DAYS} jours après chaque visite.`);
+  } catch (err) {
+    unstable_rethrow(err);
+    back(to, safeError(err), true);
+  }
+}
+
+// Coupe définitivement l'accès du salarié à son portail.
+export async function revokeEmployeePortalAccessAction(fd) {
+  const { company } = await auth.requireCompany();
+  const employeeId = Number(fd.get('employee_id'));
+  const to = portalReturnPath(fd, employeeId);
+  if (!(await employees.getEmployee(company.id, employeeId))) back(to, 'Salarié introuvable.', true);
+  await portal.revokePortalToken(employeeId);
+  revalidatePath(`/employes/${employeeId}`);
+  revalidatePath('/employes');
+  revalidatePath('/', 'layout');
+  back(to, 'Accès au portail coupé. Le salarié ne peut plus ouvrir ses bulletins avec l\'ancien lien.');
+}
+
+// Résout le salarié depuis le jeton du portail et refuse tout le reste. Le `employee_id` des
+// formulaires du portail est volontairement ignoré : seul le jeton décide de quel salarié il
+// s'agit, ce qui empêche d'écrire une demande au nom de quelqu'un d'autre. Renvoie { employee,
+// backUrl }, ou redirige vers la page d'accueil du portail en cas de jeton invalide ou expiré.
+async function portalGuard(fd) {
+  const token = text(fd, 'portal_token', 120);
+  const backUrl = `/portail/${token}`;
+
+  if (!token) redirect('/');
+
+  // Limite les envois depuis un même appareil et un même jeton : le portail est une page publique,
+  // son adresse circule et ses formulaires ne doivent pas pouvoir être remplis en boucle.
+  if (await hitLimit('portal', token, 20, 60)) {
+    back(backUrl, 'Trop d\'envois depuis cet appareil. Réessaie dans une heure.', true);
+  }
+
+  const employee = await portal.portalEmployee(token);
+  if (!employee) {
+    const expired = await portal.portalIsExpired(token);
+    redirect(expired
+      ? `/portail/${token}?expire=1`
+      : '/');
+  }
+  if (employee.status === 'inactif' || employee.status === 'archive') {
+    back(backUrl, 'Votre accès a été fermé par votre employeur. Contactez le service RH.', true);
+  }
+  return { employee, backUrl };
+}
+
+export async function portalLeaveRequestAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const r = await leaves.createLeaveRequest(employee.company_id, {
+    employee_id: employee.id,
+    type: text(fd, 'type', 40),
+    start_date: text(fd, 'start_date', 20),
+    end_date: text(fd, 'end_date', 20),
+    days_count: number(fd, 'days_count', { min: 0.5, fallback: 1 }),
+    reason: text(fd, 'reason', 300),
+  }, fd.get('justificatif'));
+  if (r && r.error) back(backUrl, r.error, true);
+  await portal.touchPortalAccess(employee);
+  revalidatePath(backUrl);
+  revalidatePath('/conges');
+  back(backUrl, 'Votre demande a été transmise. Vous serez notifié dès qu\'elle est traitée.');
+}
+
+export async function portalAdvanceRequestAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const now = new Date();
+  await advances.requestSalaryAdvance(employee.company_id, {
+    employee_id: employee.id,
+    amount: number(fd, 'amount'),
+    reason: text(fd, 'reason', 300),
+    period_month: number(fd, 'period_month', { min: 1, max: 12, fallback: now.getUTCMonth() + 1 }),
+    period_year: number(fd, 'period_year', { min: 2000, max: 2100, fallback: now.getUTCFullYear() }),
+    payment_method: text(fd, 'payment_method', 30),
+  });
+  await portal.touchPortalAccess(employee);
+  revalidatePath(backUrl);
+  revalidatePath('/acomptes');
+  back(backUrl, 'Votre demande d\'acompte a été transmise.');
+}
+
+export async function portalExpenseReportAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const r = await expenses.createExpenseReport(employee.company_id, {
+    employee_id: employee.id,
+    title: text(fd, 'title', 100),
+    amount: number(fd, 'amount'),
+    category: text(fd, 'category', 40),
+    expense_date: text(fd, 'expense_date', 20),
+  }, fd.get('recu'));
+  if (r && r.error) back(backUrl, r.error, true);
+  await portal.touchPortalAccess(employee);
+  revalidatePath(backUrl);
+  revalidatePath('/notes-de-frais');
+  back(backUrl, 'Votre note de frais a été transmise.');
+}
+
+export async function confirmPortalAccountAction(fd) {
+  const token = text(fd, 'token', 100);
+  const password = String(fd.get('password') || '');
+  const confirm = String(fd.get('confirm') || '');
+  const backUrl = `/portail/${token}`;
+
+  if (!token) redirect('/');
+
+  const res = await portal.confirmPortalAccount(token, password, confirm);
+  if (!res.ok) {
+    back(backUrl, res.error, true);
+  }
+
+  revalidatePath(backUrl);
+  back(backUrl, 'Votre mot de passe a été défini avec succès. Bienvenue sur votre espace collaborateur !');
+}
+
+export async function changePortalPasswordAction(fd) {
+  const { employee, backUrl } = await portalGuard(fd);
+  const token = text(fd, 'token', 100);
+  const currentPassword = String(fd.get('current_password') || '');
+  const newPassword = String(fd.get('new_password') || '');
+  const confirm = String(fd.get('confirm') || '');
+
+  const res = await portal.changePortalPassword(token, currentPassword, newPassword, confirm);
+  if (!res.ok) {
+    back(backUrl, res.error, true);
+  }
+
+  revalidatePath(backUrl);
+  back(backUrl, 'Votre mot de passe a été mis à jour avec succès.');
+}
+
+export async function loginPortalEmployeeAction(fd) {
+  const identifier = text(fd, 'identifier', 120);
+  const password = String(fd.get('password') || '');
+  const backUrl = '/portail/connexion';
+
+  if (!identifier || !password) {
+    back(backUrl, 'Veuillez saisir votre identifiant et votre mot de passe.', true);
+  }
+
+  const res = await portal.authenticatePortalEmployee(identifier, password);
+  if (!res.ok) {
+    back(backUrl, res.error, true);
+  }
+
+  back(`/portail/${res.token}`, 'Connexion réussie. Bienvenue sur votre espace collaborateur !');
+}
+
+export async function requestPortalMagicLinkAction(fd) {
+  const email = text(fd, 'email', 150);
+  const backUrl = '/portail/connexion';
+
+  if (!email) {
+    back(backUrl, 'Veuillez saisir votre adresse e-mail.', true);
+  }
+
+  await portal.sendPortalMagicLink(email);
+  back(backUrl, 'Si votre compte collaborateur existe avec cette adresse, un lien d\'accès direct vient de vous être envoyé par e-mail.');
 }

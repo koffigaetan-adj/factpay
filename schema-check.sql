@@ -1,0 +1,125 @@
+-- Diagnostic FactPay — à exécuter AVANT schema.sql (lecture seule, ne modifie rien).
+-- La première requête liste ce qui manque (table ou colonne) par rapport à ce que le code attend.
+-- Résultat vide = la base est à jour, inutile d'exécuter schema.sql.
+
+-- 1. Objets attendus par le code et absents de la base
+WITH attendu(table_name) AS (VALUES
+    ('users'),
+    ('sessions'),
+    ('password_resets'),
+    ('login_failures'),
+    ('companies'),
+    ('clients'),
+    ('invoices'),
+    ('invoice_lines'),
+    ('email_verifications'),
+    ('invoice_messages'),
+    ('sequences'),
+    ('login_challenges'),
+    ('documents'),
+    ('rate_limits'),
+    ('push_subscriptions'),
+    ('notifications'),
+    ('employees'),
+    ('payslips'),
+    ('portal_access_log'),
+    ('leave_requests'),
+    ('salary_advances'),
+    ('expense_reports'),
+    ('company_announcements')
+),
+attendu_colonne(table_name, column_name) AS (VALUES
+    ('users', 'first_name'),
+    ('users', 'last_name'),
+    ('users', 'email_verified_at'),
+    ('invoices', 'alt_currency'),
+    ('invoices', 'alt_rate'),
+    ('invoices', 'withholding_label'),
+    ('invoices', 'withholding_rate'),
+    ('invoices', 'withholding_amount'),
+    ('invoices', 'amount_due'),
+    ('invoices', 'period'),
+    ('invoices', 'withholding_base'),
+    ('invoices', 'receipt_sent_at'),
+    ('invoice_lines', 'kind'),
+    ('companies', 'logo_key'),
+    ('companies', 'logo_mime'),
+    ('companies', 'logo_updated_at'),
+    ('companies', 'country'),
+    ('companies', 'mobile_accounts'),
+    ('companies', 'spi_alias'),
+    ('invoices', 'cancelled_at'),
+    ('invoices', 'cancel_reason'),
+    ('invoices', 'payment_method'),
+    ('invoices', 'client_snapshot'),
+    ('invoices', 'company_snapshot'),
+    ('invoices', 'credit_number'),
+    ('invoices', 'credit_date'),
+    ('companies', 'reminders_enabled'),
+    ('companies', 'reminder_days'),
+    ('invoices', 'reminders_sent'),
+    ('invoices', 'last_reminder_at'),
+    ('invoices', 'doc_type'),
+    ('invoices', 'accepted_at'),
+    ('invoices', 'refused_at'),
+    ('invoices', 'converted_invoice_id'),
+    ('invoices', 'source_quote_id'),
+    ('companies', 'quote_prefix'),
+    ('companies', 'quote_validity'),
+    ('email_verifications', 'new_email'),
+    ('users', 'twofa_method'),
+    ('users', 'totp_secret'),
+    ('users', 'totp_pending'),
+    ('users', 'totp_app'),
+    ('users', 'totp_last_step'),
+    ('users', 'backup_codes'),
+    ('users', 'avatar_key'),
+    ('users', 'avatar_mime'),
+    ('users', 'avatar_updated_at'),
+    ('users', 'terms_accepted_at'),
+    ('invoices', 'repeat_active'),
+    ('invoices', 'repeat_day'),
+    ('invoices', 'repeat_next'),
+    ('invoices', 'repeat_count'),
+    ('invoices', 'repeat_source_id'),
+    ('invoices', 'accepted_by'),
+    ('companies', 'accountant_token_hash'),
+    ('companies', 'accountant_token_enc'),
+    ('companies', 'accountant_since'),
+    ('invoices', 'verify_code'),
+    ('companies', 'fp_code'),
+    ('companies', 'account_holder'),
+    ('invoices', 'send_tz'),
+    ('invoices', 'payment_methods'),
+    ('employees', 'user_id'),
+    ('employees', 'manager_id'),
+    ('employees', 'avatar_url'),
+    ('employees', 'leave_balance'),
+    ('employees', 'portal_token'),
+    ('employees', 'portal_token_created_at'),
+    ('employees', 'portal_token_expires_at'),
+    ('employees', 'portal_last_seen_at'),
+    ('leave_requests', 'document_name'),
+    ('leave_requests', 'document_mime'),
+    ('expense_reports', 'receipt_name'),
+    ('expense_reports', 'receipt_mime')
+)
+SELECT 'table' AS manque, a.table_name AS objet
+FROM attendu a
+WHERE NOT EXISTS (SELECT 1 FROM information_schema.tables t
+                  WHERE t.table_schema='public' AND t.table_name=a.table_name)
+UNION ALL
+SELECT 'colonne', c.table_name || '.' || c.column_name
+FROM attendu_colonne c
+WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns col
+                  WHERE col.table_schema='public'
+                    AND col.table_name=c.table_name AND col.column_name=c.column_name)
+ORDER BY 1, 2;
+
+-- 2. Compteurs de contrôle
+SELECT
+  (SELECT count(*) FROM information_schema.tables WHERE table_schema='public') AS tables_presentes,
+  (SELECT count(*) FROM employees)   AS salaries,
+  (SELECT count(*) FROM companies)   AS entreprises,
+  (SELECT count(*) FROM invoices)    AS factures,
+  (SELECT count(*) FROM payslips)    AS bulletins;

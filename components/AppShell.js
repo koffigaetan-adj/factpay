@@ -1,107 +1,237 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
 import Icon from '@/components/Icon';
 import { logout } from '@/app/actions';
+import {
+  WORKSPACES,
+  FOOTER_LINKS,
+  isCurrentPath,
+  isWorkspaceCurrent,
+  actionsInWorkspace,
+} from '@/lib/nav';
 
+function userInitials(name) {
+  if (!name) return 'FP';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
-
-// Menu : « Activité » en haut, « Gestion » en bas, juste au-dessus du profil
-const ACTIVITY = [
-  ['/tableau-de-bord', 'Tableau de bord', 'dashboard'],
-  ['/factures', 'Factures', 'invoice'],
-  ['/devis', 'Devis', 'quote'],
-  ['/rapports', 'Rapports', 'report'],
-];
-const MANAGEMENT = [
-  ['/clients', 'Clients', 'clients'],
-  ['/salaries', 'Salariés', 'people'],
-  ['/documents', 'Documents', 'documents'],
-  ['/parametres', 'Paramètres', 'settings'],
-];
-
-// Espace connecté : barre latérale à gauche, réductible aux seules icônes (choix mémorisé dans un cookie),
-// et menu coulissant sur téléphone.
-export default function AppShell({ companyName, userName, email, avatarUrl = null, initialCollapsed = false, children }) {
+export default function AppShell({
+  companyName,
+  companyLogoUrl = null,
+  userName,
+  email,
+  avatarUrl = null,
+  sidebarCounts = {},
+  children,
+}) {
   const path = usePathname();
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
 
-  // Sur téléphone, le menu se referme quand on change de page
-  useEffect(() => { setOpen(false); }, [path]);
+  // Fermer la sidebar et le menu profil lors d'un changement de page
+  useEffect(() => {
+    setOpen(false);
+    setProfileOpen(false);
+  }, [path]);
 
-  const links = (list) => list.map(([href, label, icon]) => (
-    <Link key={href} href={href} aria-current={path.startsWith(href) ? 'page' : undefined}>
-      <Icon name={icon} /><span className="sb-label">{label}</span>
-    </Link>
-  ));
-
-  const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    document.cookie = `sidebar=${next ? 'collapsed' : 'open'}; path=/; max-age=31536000; samesite=lax`;
-  };
+  // Fermer le menu profil quand on clique en dehors
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [profileOpen]);
 
   return (
-    <div className={`app${collapsed ? ' is-collapsed' : ''}${open ? ' is-open' : ''}`}>
-      <div className="mobile-bar">
-        <button type="button" className="sb-icon-btn" onClick={() => setOpen(true)} aria-label="Ouvrir le menu" aria-expanded={open}>
-          <Icon name="menu" size={22} />
-        </button>
-        <Link href="/tableau-de-bord" className="mobile-brand"><Logo height={26} /><span>{companyName}</span></Link>
-      </div>
-
-      <aside className="sidebar" aria-label="Menu principal">
-        {/* Réduire / agrandir : bouton rond posé sur le bord de la barre */}
-        <button type="button" className="sb-edge" onClick={toggle} aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Agrandir le menu' : 'Réduire le menu'}>
-          <Icon name="chevron" size={16} />
-        </button>
-
-        <div className="sb-top">
-          <Link href="/tableau-de-bord" className="sb-brand">
-            <Logo height={30} />
-            <span className="sb-brand-divider sb-label" aria-hidden="true"></span>
-            <span className="sb-label sb-company">{companyName}</span>
-          </Link>
-          <button type="button" className="sb-icon-btn sb-close" onClick={() => setOpen(false)} aria-label="Fermer le menu">
-            <Icon name="close" />
+    <div className={`app${open ? ' is-open' : ''}`}>
+      {/* 1. Header supérieur pleine largeur (style Payfit) */}
+      <header className="app-topbar">
+        <div className="topbar-left">
+          <button
+            type="button"
+            className="topbar-menu-btn"
+            onClick={() => setOpen(!open)}
+            aria-label="Ouvrir le menu"
+            aria-expanded={open}
+          >
+            <Icon name="menu" size={22} />
           </button>
-        </div>
-
-        <Link href="/factures/nouvelle" className="sb-new">
-          <Icon name="plus" /><span className="sb-label">Nouvelle facture</span>
-        </Link>
-
-        <nav className="sb-nav" aria-label="Activité">
-          <span className="sb-group-label sb-label">Activité</span>
-          {links(ACTIVITY)}
-        </nav>
-
-        <nav className="sb-nav sb-manage" aria-label="Gestion">
-          <span className="sb-group-label sb-label">Gestion</span>
-          {links(MANAGEMENT)}
-        </nav>
-
-        <div className="sb-profile">
-          <Link href="/parametres?onglet=compte" className="sb-avatar" title="Mon compte : changer la photo">
-            {avatarUrl ? <img src={avatarUrl} alt="" width={36} height={36} /> : <Icon name="user" size={20} />}
-            <span className="sr">Mon compte</span>
+          <Link href="/tableau-de-bord" className="topbar-brand" title="FactPay">
+            <Logo height={34} />
           </Link>
-          <span className="sb-label sb-who">
-            <strong>{userName}</strong>
-            <span title={email}>{email}</span>
-          </span>
-          <form action={logout}>
-            <button className="sb-icon-btn sb-logout" aria-label="Se déconnecter" title="Se déconnecter"><Icon name="logout" /></button>
-          </form>
         </div>
+
+        <div className="topbar-right">
+          <div className="topbar-profile-wrap" ref={profileRef}>
+            <button
+              type="button"
+              className="topbar-profile-btn"
+              onClick={() => setProfileOpen(!profileOpen)}
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+            >
+              <span className="topbar-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={userName} />
+                ) : (
+                  <span>{userInitials(userName)}</span>
+                )}
+              </span>
+              <div className="topbar-profile-info">
+                <span className="topbar-user-name">{userName}</span>
+                <span className="topbar-company-name">
+                  {companyLogoUrl && (
+                    <img src={companyLogoUrl} alt="" className="topbar-company-mini-logo" />
+                  )}
+                  {companyName}
+                </span>
+              </div>
+              <span className={`topbar-chevron${profileOpen ? ' is-open' : ''}`} aria-hidden="true">
+                <Icon name="chevronDown" size={14} />
+              </span>
+            </button>
+
+            {/* Menu déroulant profil & entreprise */}
+            {profileOpen && (
+              <div className="topbar-dropdown" role="menu">
+                <div className="topbar-dropdown-header">
+                  <span className="dropdown-user-name">{userName}</span>
+                  <span className="dropdown-email">{email}</span>
+                  <div className="dropdown-company-badge">
+                    {companyLogoUrl ? (
+                      <img src={companyLogoUrl} alt="" className="dropdown-company-logo" />
+                    ) : (
+                      <span className="dropdown-company-initials">{companyName.slice(0, 2).toUpperCase()}</span>
+                    )}
+                    <span className="dropdown-company-name">{companyName}</span>
+                  </div>
+                </div>
+                <div className="topbar-dropdown-sep" />
+                <Link
+                  href="/parametres"
+                  className="topbar-dropdown-item"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  <Icon name="settings" size={16} />
+                  <span>Paramètres de l'entreprise</span>
+                </Link>
+                <Link
+                  href="/parametres#securite"
+                  className="topbar-dropdown-item"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  <Icon name="user" size={16} />
+                  <span>Mon compte & Sécurité</span>
+                </Link>
+                <div className="topbar-dropdown-sep" />
+                <form action={logout}>
+                  <button type="submit" className="topbar-dropdown-item topbar-dropdown-logout">
+                    <Icon name="logout" size={16} />
+                    <span>Se déconnecter</span>
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* 2. Barre latérale sous le header (style Payfit, non réductible) */}
+      <aside className="sidebar" aria-label="Menu principal">
+        {/* Bouton de fermeture mobile */}
+        <button
+          type="button"
+          className="sb-icon-btn sb-close"
+          onClick={() => setOpen(false)}
+          aria-label="Fermer le menu"
+        >
+          <Icon name="close" size={20} />
+        </button>
+
+        <nav className="sb-scroll" aria-label="Menu principal">
+          {/* Section 1 : Les essentiels (exactement comme le screenshot Payfit) */}
+          <div className="sb-section">
+            <span className="sb-section-title sb-label">Les essentiels</span>
+            <div className="sb-group">
+              <Link
+                href="/tableau-de-bord"
+                className={`sb-nav-link${isCurrentPath(path, '/tableau-de-bord') ? ' is-active' : ''}`}
+                aria-current={isCurrentPath(path, '/tableau-de-bord') ? 'page' : undefined}
+              >
+                <span className="sb-link-icon">
+                  <Icon name="dashboard" size={18} />
+                </span>
+                <span className="sb-label">Tableau de bord</span>
+              </Link>
+
+              {/* Espaces clés */}
+              {WORKSPACES.map((workspace) => {
+                const active = isWorkspaceCurrent(path, workspace);
+                const pending = actionsInWorkspace(workspace, sidebarCounts);
+
+                return (
+                  <Link
+                    key={workspace.id}
+                    href={workspace.href}
+                    className={`sb-nav-link${active ? ' is-active' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <span className="sb-link-icon">
+                      <Icon name={workspace.icon} size={18} />
+                    </span>
+                    <span className="sb-label">{workspace.label}</span>
+                    {pending > 0 && (
+                      <span className="sb-badge" aria-label={`${pending} action(s) attendue(s)`}>
+                        {pending}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 2 : Mon entreprise */}
+          <div className="sb-section" style={{ marginTop: 'auto', paddingTop: '16px' }}>
+            <span className="sb-section-title sb-label">Mon entreprise</span>
+            <div className="sb-group">
+              {FOOTER_LINKS.map((link) => {
+                const active = isCurrentPath(path, link.href);
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`sb-nav-link sb-nav-link-subtle${active ? ' is-active' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <span className="sb-link-icon">
+                      <Icon name={link.icon} size={17} />
+                    </span>
+                    <span className="sb-label">{link.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </nav>
       </aside>
 
-      <div className="sb-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />
+      {/* Rideau sombre sur mobile */}
+      {open && <div className="sb-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
+
+      {/* Contenu principal */}
       <main>{children}</main>
     </div>
   );

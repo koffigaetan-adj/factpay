@@ -4,6 +4,7 @@ import { accountantToken } from '@/lib/accountant';
 import { appUrl } from '@/lib/url';
 import { frDate } from '@/lib/dates';
 import { whatsappLink } from '@/lib/payment';
+import Icon from '@/components/Icon';
 
 // Onglet Comptable : un lien secret, en lecture seule, à donner à son comptable
 export default function AccountantSettings({ company }) {
@@ -25,14 +26,14 @@ export default function AccountantSettings({ company }) {
             <p className="help" style={{ margin: 0 }}>Lien créé le {frDate(company.accountant_since)}. Garde-le pour toi et ton comptable : toute personne qui l'a peut consulter tes factures.</p>
           </div>
         ) : (
-          <form action={createAccountantAccess}><button>Créer le lien pour mon comptable</button></form>
+          <form action={createAccountantAccess}><button><Icon name="plus" size={16} /> Créer le lien pour mon comptable</button></form>
         )}
       </section>
       {link && (
         <section className="card danger-zone" style={{ padding: '24px' }}>
           <h3 style={{ marginTop: 0, color: 'inherit' }}>Couper l'accès</h3>
           <p className="hint">Fin de mission, lien partagé par erreur : désactive-le. Un nouveau lien, différent, pourra être créé ensuite.</p>
-          <form action={revokeAccountantAccess}><button className="danger">Désactiver le lien</button></form>
+          <form action={revokeAccountantAccess}><button className="danger"><Icon name="trash" size={16} /> Désactiver le lien</button></form>
         </section>
       )}
     </div>

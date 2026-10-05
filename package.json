@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "node scripts/setup-db.js && next build",
+    "dev": "node scripts/next-run.js dev",
+    "build": "node scripts/setup-db.js && node scripts/next-run.js build",
     "start": "next start",
     "db:setup": "node scripts/setup-db.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test --test-concurrency=1 tests/*.test.js"
   },
   "engines": {
     "node": ">=20"
@@ -22,6 +22,7 @@
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "web-push": "^3.6.7"
   }
 }
