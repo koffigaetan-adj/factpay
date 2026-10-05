@@ -307,31 +307,6 @@ export default function Dashboard({
 
       {flash}
 
-      {/* Bannière de bienvenue style PayFit (dismissible) */}
-      {!bannerDismissed && (
-        <div className="dash-banner">
-          <div className="dash-banner-content">
-            <div className="dash-banner-tag">Bienvenue dans le nouveau FactPay</div>
-            <p>
-              FactPay fait peau neuve avec un nouveau design, une navigation repensée et des outils de facturation et de paie plus fluides. Tout votre univers d'entreprise directement à portée de clic.
-            </p>
-            <div className="dash-banner-links">
-              <Link href="/fiches-de-paie" className="dash-banner-link">
-                Découvrir les nouveautés RH &rarr;
-              </Link>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="dash-banner-close"
-            onClick={dismissBanner}
-            title="Fermer cette bannière"
-            aria-label="Fermer"
-          >
-            &times;
-          </button>
-        </div>
-      )}
 
       {/* Section Aperçu (style PayFit) */}
       <section className="dash-section" aria-labelledby="apercu-title">
@@ -495,35 +470,35 @@ export default function Dashboard({
 
       {/* Graphique des encaissements par mois */}
       <section className="dash-chart" aria-labelledby="chart-title">
-          <div className="chart-head">
-            <div>
-              <h2 id="chart-title">Encaissé par mois en {year}</h2>
-              <span className="sub" style={{ marginTop: '4px' }}>Date de confirmation de chaque paiement</span>
-            </div>
-            <span className="muted" style={{ fontWeight: '600', fontSize: '15px' }}>Total {money(cashed, cur)}</span>
+        <div className="chart-head">
+          <div>
+            <h2 id="chart-title">Encaissé par mois en {year}</h2>
+            <span className="sub" style={{ marginTop: '4px' }}>Date de confirmation de chaque paiement</span>
           </div>
-          <div className="bars" role="img" aria-label={`Montants encaissés chaque mois en ${year}. Le détail est dans le tableau qui suit.`}>
-            <div className="bars-axis" aria-hidden="true">
-              {[...ticks].reverse().map((t) => <span key={t}>{compact(t)}</span>)}
-            </div>
-            <div className="bars-plot">
-              {ticks.map((t) => <span key={t} className="grid" style={{ bottom: `${(t / top) * 100}%` }} aria-hidden="true" />)}
-              {byMonth.map((v, m) => (
-                <div key={m} className={`bar-col${m === thisMonth ? ' now' : ''}${m > thisMonth ? ' future' : ''}`} tabIndex={0}>
-                  <span className="bar" style={{ height: `${(v / top) * 100}%` }} />
-                  <span className="tip" role="tooltip"><strong>{money(v, cur)}</strong>{MONTHS_FULL[m]} {year}</span>
-                  <span className="bar-label">{MONTHS_SHORT[m]}</span>
-                </div>
-              ))}
-            </div>
+          <span className="muted" style={{ fontWeight: '600', fontSize: '15px' }}>Total {money(cashed, cur)}</span>
+        </div>
+        <div className="bars" role="img" aria-label={`Montants encaissés chaque mois en ${year}. Le détail est dans le tableau qui suit.`}>
+          <div className="bars-axis" aria-hidden="true">
+            {[...ticks].reverse().map((t) => <span key={t}>{compact(t)}</span>)}
           </div>
-          <table className="sr">
-            <caption>Encaissé par mois en {year}</caption>
-            <thead><tr><th>Mois</th><th>Encaissé</th></tr></thead>
-            <tbody>{byMonth.map((v, m) => <tr key={m}><td>{MONTHS_FULL[m]}</td><td>{money(v, cur)}</td></tr>)}</tbody>
-          </table>
-          {skipped > 0 && <p className="help" style={{ margin: '12px 0 0' }}>{skipped} facture{skipped > 1 ? 's' : ''} dans une autre devise, sans taux vers {cur}, {skipped > 1 ? 'ne sont' : "n'est"} pas comptée{skipped > 1 ? 's' : ''} ici.</p>}
-        </section>
+          <div className="bars-plot">
+            {ticks.map((t) => <span key={t} className="grid" style={{ bottom: `${(t / top) * 100}%` }} aria-hidden="true" />)}
+            {byMonth.map((v, m) => (
+              <div key={m} className={`bar-col${m === thisMonth ? ' now' : ''}${m > thisMonth ? ' future' : ''}`} tabIndex={0}>
+                <span className="bar" style={{ height: `${(v / top) * 100}%` }} />
+                <span className="tip" role="tooltip"><strong>{money(v, cur)}</strong>{MONTHS_FULL[m]} {year}</span>
+                <span className="bar-label">{MONTHS_SHORT[m]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <table className="sr">
+          <caption>Encaissé par mois en {year}</caption>
+          <thead><tr><th>Mois</th><th>Encaissé</th></tr></thead>
+          <tbody>{byMonth.map((v, m) => <tr key={m}><td>{MONTHS_FULL[m]}</td><td>{money(v, cur)}</td></tr>)}</tbody>
+        </table>
+        {skipped > 0 && <p className="help" style={{ margin: '12px 0 0' }}>{skipped} facture{skipped > 1 ? 's' : ''} dans une autre devise, sans taux vers {cur}, {skipped > 1 ? 'ne sont' : "n'est"} pas comptée{skipped > 1 ? 's' : ''} ici.</p>}
+      </section>
 
       <section>
         <div className="chart-head">

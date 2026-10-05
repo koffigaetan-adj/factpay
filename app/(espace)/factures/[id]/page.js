@@ -15,10 +15,12 @@ import { paymentMethodOptions, paymentItems, whatsappLink } from '@/lib/payment'
 import BrandBadge from '@/components/BrandBadge';
 import Icon from '@/components/Icon';
 import Modal from '@/components/Modal';
+import QRCode from 'qrcode';
 import { shiftPeriod, describePeriod } from '@/lib/period';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
 import { statusOf } from '@/lib/status';
 import { pubId, idFrom } from '@/lib/ids';
+import { verifyUrl, formatCode, fingerprint } from '@/lib/verify';
 
 export const metadata = { title: 'Facture' };
 
@@ -58,6 +60,15 @@ export default async function Page({ params, searchParams }) {
     try { enabledPayKeys = JSON.parse(inv.payment_methods); } catch {}
   }
   const payItems = paymentItems(company, enabledPayKeys);
+
+  const qrDataUrl = inv.verify_code
+    ? await QRCode.toDataURL(verifyUrl(inv.verify_code), {
+        margin: 1,
+        width: 160,
+        color: { dark: '#0F172A', light: '#FFFFFF' },
+      }).catch(() => null)
+    : null;
+  const docFingerprint = inv.verify_code ? fingerprint(inv, company.name) : null;
 
   const messages = await messagesPromise;
   return (
@@ -214,6 +225,54 @@ export default async function Page({ params, searchParams }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {qrDataUrl && (
+            <div
+              style={{
+                marginTop: '24px',
+                padding: '16px 20px',
+                background: 'color-mix(in srgb, var(--brand) 4%, var(--paper))',
+                border: '1px solid var(--line)',
+                borderRadius: '10px',
+                display: 'grid',
+                gridTemplateColumns: '76px 1fr',
+                gap: '16px',
+                alignItems: 'center'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <img
+                  src={qrDataUrl}
+                  alt="QR code d'authenticité"
+                  style={{
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: '#FFFFFF',
+                    padding: '3px'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #A7F3D0', textTransform: 'uppercase' }}>
+                    ✓ Certifié Conforme
+                  </span>
+                  <Link href={`/v/${inv.verify_code}`} target="_blank" rel="noopener" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand-text)', textDecoration: 'underline' }}>
+                    Tester la vérification en ligne
+                  </Link>
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.35, marginTop: '2px' }}>
+                  Le QR code imprimé en bas du document permet à votre client ou sa banque de vérifier instantanément l'authenticité de la facture.
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                  Code : <strong style={{ color: 'var(--ink)', fontFamily: 'monospace' }}>{formatCode(inv.verify_code)}</strong>
+                  {docFingerprint && <> · Empreinte : <code style={{ color: 'var(--ink)', fontWeight: 600 }}>{docFingerprint}</code></>}
+                </div>
               </div>
             </div>
           )}

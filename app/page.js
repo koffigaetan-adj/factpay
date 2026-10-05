@@ -2,13 +2,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import Logo from '@/components/Logo';
 import CurrencySwitch from '@/components/CurrencySwitch';
+import Icon from '@/components/Icon';
 import { currentUser } from '@/lib/auth';
 import { money, totals, convert, fixedRate } from '@/lib/money';
 
-// Facture d'exemple (fictive)
+// Facture d'exemple
 const LINES = [
-  { description: 'Développement d’application web', quantity: 12, unit: 'jours', unit_price: 125000 },
-  { description: 'Formation équipe & déploiement', quantity: 1, unit: 'forfait', unit_price: 150000 },
+  { description: 'Développement d’application web & mobile', quantity: 10, unit: 'jours', unit_price: 125000 },
+  { description: 'Formation de l’équipe & mise en production', quantity: 1, unit: 'forfait', unit_price: 150000 },
 ];
 const T = totals(LINES, 0, 5, 'XOF');
 const TO_EUR = fixedRate('XOF', 'EUR');
@@ -23,27 +24,85 @@ function Amount({ n, minus = false }) {
   );
 }
 
-const STEPS = [
-  { cls: 'draft', label: '1. Facturation & Devis', text: "Créez des factures en F CFA ou en euros, avec calcul automatique des taxes et de la retenue à la source." },
-  { cls: 'wait', label: '2. Paiement Mobile Money & Virement', text: "Vos clients règlent via Flooz, TMoney, Mixx by Yas, Wave ou virement et transmettent leur reçu en direct." },
-  { cls: 'check', label: '3. Paie & RH Conformes', text: "Éditez les bulletins de salaire conformes aux barèmes légaux Togo et UEMOA (CNSS 4 %, primes, impôts)." },
-  { cls: 'paid', label: '4. Espace Collaborateur Salarié', text: "Vos collaborateurs activent leur compte avec mot de passe personnel, posent leurs congés et téléchargent leurs fiches de paie." },
+const STATS = [
+  { icon: 'shield', number: '100%', label: 'Conforme CNSS & Code du travail' },
+  { icon: 'building', number: '15+', label: 'Pays & Devises (F CFA, EUR, USD)' },
+  { icon: 'cash', number: '100%', label: 'Mobile Money & Virement (Flooz, TMoney, Wave)' },
+  { icon: 'clock', number: '60s', label: 'Pour émettre facture ou fiche de paie' },
+];
+
+const PILLARS = [
+  {
+    icon: 'invoice',
+    cls: 'p1',
+    title: 'Facturation & Devis Intelligents',
+    desc: 'Éditez des factures professionnelles en F CFA ou en devises internationales avec calcul automatique de la TVA et de la retenue à la source.',
+    items: [
+      'Calcul instantané de la retenue à la source (5 %)',
+      'Bascule automatique F CFA ⇄ Euros',
+      'Coordonnées Flooz, TMoney, Mixx & Wave intégrées',
+      'QR Code et code d’authenticité infalsifiable',
+    ],
+  },
+  {
+    icon: 'people',
+    cls: 'p2',
+    title: 'Paie & Gestion RH Automatisée',
+    desc: 'Générez des bulletins de paie conformes aux barèmes fiscaux et sociaux du Togo et de la zone UEMOA sans aucune prise de tête.',
+    items: [
+      'Cotisations CNSS calculées automatiquement (4 % & 17,5 %)',
+      'Gestion des primes, indemnités et acomptes sur salaire',
+      'Suivi des congés acquis et absences de l’équipe',
+      'Génération d’attestations de travail certifiées',
+    ],
+  },
+  {
+    icon: 'user',
+    cls: 'p3',
+    title: 'Portail Salarié Self-Service',
+    desc: 'Donnez à chaque collaborateur un accès personnel et sécurisé sur mobile pour consulter ses bulletins et faire ses demandes RH.',
+    items: [
+      'Définition de mot de passe personnel sécurisé',
+      'Téléchargement direct des fiches de paie PDF',
+      'Dépôt des demandes de congés en 2 clics',
+      'Demandes d’acomptes et notes de frais avec reçus',
+    ],
+  },
 ];
 
 const LOCAL = [
-  { specimen: '1 567 500 F CFA', title: 'Le franc CFA, sans centimes', text: 'Montants arrondis au franc, comme sur vos vrais reçus. XOF, XAF, euro, dollar et devises internationales.' },
-  { specimen: '1 € = 655,957 F CFA', title: 'La parité fixe instantanée', text: 'Vos clients basculent d’un clic entre F CFA et euros pour leurs partenaires locaux ou internationaux.' },
-  { specimen: 'Flooz · TMoney · Mixx · Wave', title: 'Les moyens de paiement d’Afrique de l’Ouest', text: 'Vos numéros Mobile Money, votre RIB bancaire et vos alias figurent sur chaque facture et e-mail.' },
-  { specimen: 'CNSS 4 % · Retenue 5 %', title: 'Barèmes fiscaux et sociaux automatisés', text: 'Prélèvements CNSS, retenues à la source et impôts sur salaires calculés selon le code du travail.' },
-  { specimen: 'Espace Salarié Sécurisé', title: 'Portail collaborateur en libre-service', text: 'Activation par mot de passe personnel, consultation des fiches de paie, gestion des congés et acomptes.' },
-  { specimen: 'NIF · RCCM · N° CNSS', title: 'Mentions légales & traçabilité', text: 'Numérotation continue infalsifiable, mentions d’entreprise et attestations certifiées en un clic.' },
+  { icon: 'cash', tag: '1 567 500 F CFA', title: 'Le franc CFA sans centimes', text: 'Montants arrondis au franc, conformes à vos reçus réels. Compatible XOF, XAF, EUR et USD.' },
+  { icon: 'repeat', tag: '1 € = 655,957 F CFA', title: 'Parité fixe instantanée', text: 'Vos clients basculent d’un clic entre F CFA et euros pour leurs partenaires locaux ou internationaux.' },
+  { icon: 'cash', tag: 'Flooz · TMoney · Wave · Mixx', title: 'Paiements d’Afrique de l’Ouest', text: 'Vos comptes Mobile Money, votre RIB bancaire et SPI figurent directement sur vos factures.' },
+  { icon: 'percent', tag: 'CNSS 4 % · Retenue 5 %', title: 'Barèmes fiscaux intégrés', text: 'Cotisations sociales CNSS et retenues fiscales à la source calculées automatiquement à la virgule près.' },
+  { icon: 'user', tag: 'Espace Salarié Sécurisé', title: 'Portail collaborateur moderne', text: 'Vos employés se connectent, téléchargent leurs fiches de paie et posent leurs congés en toute autonomie.' },
+  { icon: 'shield', tag: 'NIF · RCCM · Numérotation', title: 'Conformité légale garantie', text: 'Numérotation continue sans trou, mentions d’entreprise et traçabilité pour votre comptabilité.' },
+];
+
+const FAQS = [
+  {
+    q: 'Comment mes salariés accèdent-ils à leur espace ?',
+    a: 'Lors de l’ajout du salarié, vous renseignez son adresse e-mail. Il reçoit une invitation personnelle lui permettant de définir son mot de passe et d’accéder à son portail depuis son smartphone ou ordinateur.',
+  },
+  {
+    q: 'Les bulletins de paie sont-ils conformes au droit du travail ?',
+    a: 'Oui ! FactPay intègre nativement les taux de cotisations sociales CNSS Togo / UEMOA (4 % part salariale, 17,5 % part patronale), les primes, indemnités de transport et exonérations légales.',
+  },
+  {
+    q: 'Quels modes de règlement puis-je afficher sur mes factures ?',
+    a: 'Vous pouvez configurer vos comptes TMoney (Togocom), Flooz (Moov Africa), Wave, Mixx by Yas, ainsi que vos coordonnées bancaires (IBAN, BIC / SWIFT) avec le titulaire exact du compte.',
+  },
+  {
+    q: 'Puis-je partager mes données avec mon comptable ?',
+    a: 'Absolument. FactPay propose un lien d’accès sécurisé en lecture seule pour votre expert-comptable ainsi que des exports CSV et PDF complets de vos factures et paies.',
+  },
 ];
 
 const NET = [
   { label: 'Facturé hors taxes en 2026', value: 4500000 },
-  { label: 'Retenu par vos clients', value: -225000 },
+  { label: 'Retenu par vos clients (5 %)', value: -225000 },
   { label: 'Encaissé sur vos comptes', value: 4275000, rule: true },
-  { label: 'Provision pour impôts & charges sociales', value: -450000, note: 'Net net après retenues et prélèvements légaux' },
+  { label: 'Provision pour charges sociales & impôts', value: -450000, note: 'Net net après retenues et prélèvements légaux' },
 ];
 
 export default async function Home({ searchParams }) {
@@ -51,222 +110,358 @@ export default async function Home({ searchParams }) {
   const deleted = (await searchParams)?.compte === 'supprime';
 
   return (
-    <div className="landing">
-      {deleted && <p className="flash deleted" role="status">Votre compte et ses données ont été supprimés.</p>}
+    <div className="lp-wrap">
+      {deleted && (
+        <div style={{ background: '#FEE2E2', color: '#991B1B', padding: '12px 24px', textAlign: 'center', fontWeight: 600, fontSize: '14px' }}>
+          Votre compte et ses données ont été supprimés.
+        </div>
+      )}
 
       {/* HEADER DE NAVIGATION */}
-      <div className="site-top">
-        <header className="site-head" style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px' }}>
-          <Link href="/" aria-label="FactPay, accueil"><Logo height={44} priority /></Link>
-          <nav className="site-nav" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Link className="button secondary hide-xs" href="/portail/connexion" style={{ fontSize: '13.5px', background: '#F8FAFC' }}>
-              👤 Espace Salarié
+      <header className="lp-header">
+        <div className="lp-container">
+          <nav className="lp-nav" aria-label="Navigation principale">
+            <Link href="/" aria-label="FactPay, retour à l'accueil">
+              <Logo height={42} priority />
             </Link>
-            <Link className="button secondary" href="/connexion" style={{ fontSize: '13.5px' }}>
-              Connexion Entreprise
-            </Link>
-            <Link className="button" href="/inscription" style={{ fontSize: '13.5px' }}>
-              Créer un compte
-            </Link>
+            <div className="lp-nav-links">
+              <Link className="lp-nav-btn ghost hide-xs" href="/portail/connexion">
+                <Icon name="user" size={16} /> Espace Salarié
+              </Link>
+              <Link className="lp-nav-btn outline" href="/connexion">
+                Connexion
+              </Link>
+              <Link className="lp-nav-btn primary" href="/inscription">
+                Créer un compte
+              </Link>
+            </div>
           </nav>
-        </header>
-      </div>
+        </div>
+      </header>
 
-      <main className="land">
-        {/* HERO SECTION */}
-        <section className="land-hero" aria-labelledby="hero-title" style={{ padding: '40px 0 60px' }}>
-          <div className="hero-copy">
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '4px 14px',
-              borderRadius: '999px',
-              background: 'color-mix(in srgb, var(--brand, #2B4C7E) 12%, transparent)',
-              color: 'var(--brand, #2B4C7E)',
-              fontSize: '12.5px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              marginBottom: '16px',
-            }}>
-              ✨ La suite tout-en-un · Facturation, RH & Paie
-            </div>
-            <h1 id="hero-title" style={{ fontSize: '38px', lineHeight: 1.15, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 16px' }}>
-              Facturez vos clients.<br />
-              <span style={{ color: 'var(--brand, #2B4C7E)' }}>Gérez vos paies & vos salariés.</span>
-            </h1>
-            <p className="lede" style={{ fontSize: '16.5px', lineHeight: 1.6, color: 'var(--muted)', maxWidth: '580px', margin: '0 0 28px' }}>
-              FactPay réunit la <strong>facturation professionnelle</strong> (F CFA / €, Mobile Money, retenues) et la <strong>gestion RH & Paie</strong> conforme aux normes d'Afrique de l'Ouest (Togo, UEMOA). Offrez à votre équipe un portail collaborateur moderne et sécurisé.
-            </p>
-            <div className="hero-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              <Link className="button big" href="/inscription">Démarrer gratuitement</Link>
-              <Link className="button big secondary" href="/portail/connexion">Accéder au portail salarié</Link>
-            </div>
-            <span className="hero-note" style={{ display: 'block', marginTop: '12px', fontSize: '13px', color: 'var(--muted)' }}>
-              Aucune carte bancaire requise · Configuration en 2 minutes
-            </span>
-          </div>
-
-          {/* DÉMO INTERACTIVE : FACTURE OU BULLETIN */}
-          <figure className="demo" aria-label="Exemple de document FactPay" style={{ margin: 0 }}>
-            <div className="demo-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid var(--line)' }}>
-              <span className="demo-tag" style={{ fontSize: '12px', fontWeight: 650, color: 'var(--brand)' }}>
-                Facture & Fiche de Paie conformes
-              </span>
-              <CurrencySwitch main="F CFA" alt="€" />
-            </div>
-
-            <article className="demo-sheet" style={{ padding: '24px' }}>
-              <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--line)', paddingBottom: '14px' }}>
-                <div>
-                  <strong className="demo-title" style={{ fontSize: '16px', display: 'block' }}>Facture FAC-FP481-0014</strong>
-                  <span className="sub">Échéance : 15 octobre 2026</span>
-                </div>
-                <address style={{ textAlign: 'right', fontStyle: 'normal', fontSize: '13px' }}>
-                  <strong>Studio Tech SARL</strong><br />Lomé, Togo<br />NIF : 1000000000
-                </address>
-              </header>
-
-              <p className="demo-client" style={{ fontSize: '13.5px', marginBottom: '16px' }}>
-                <span className="sub" style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600 }}>Facturé à</span>
-                <strong>Société Lumière UEMOA</strong>
+      {/* HERO SECTION */}
+      <section className="lp-hero">
+        <div className="lp-container">
+          <div className="lp-hero-grid">
+            <div>
+              <div className="lp-badge">
+                <Icon name="shield" size={14} /> La suite tout-en-un · Facturation, RH & Paie
+              </div>
+              <h1 className="lp-hero-title">
+                Facturez vos clients.<br />
+                <span>Gérez vos paies & vos salariés.</span>
+              </h1>
+              <p className="lp-hero-desc">
+                FactPay réunit la <strong>facturation professionnelle</strong> (F CFA / €, Mobile Money Flooz / TMoney / Wave, retenues) et la <strong>gestion RH & Paie</strong> conforme aux normes d’Afrique de l'Ouest (Togo, UEMOA). Offrez à votre équipe un portail collaborateur moderne et sécurisé.
               </p>
-
-              <table>
-                <thead><tr><th>Prestation</th><th className="n hide-xs">Qté</th><th className="n">Montant</th></tr></thead>
-                <tbody>
-                  {LINES.map((l) => (
-                    <tr key={l.description}>
-                      <td>{l.description}</td>
-                      <td className="n hide-xs">{l.quantity} {l.unit}</td>
-                      <td className="n"><Amount n={l.quantity * l.unit_price} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <dl className="demo-sum" style={{ marginTop: '16px' }}>
-                <div><dt>Total HT</dt><dd><Amount n={T.total} /></dd></div>
-                <div><dt>Retenue à la source (5 %)</dt><dd><Amount n={T.withholding} minus /></dd></div>
-                <div className="due"><dt>Net à payer</dt><dd><Amount n={T.due} /></dd></div>
-              </dl>
-
-              <p className="demo-pay" style={{ fontSize: '12px', background: 'var(--bg)', padding: '8px 12px', borderRadius: '8px', marginTop: '14px' }}>
-                TMoney +228 90 00 00 00 · Flooz +228 99 00 00 00 · Virement Ecobank Togo
-              </p>
-              <div className="demo-cta" aria-hidden="true" style={{ marginTop: '14px', textAlign: 'center', padding: '10px', background: 'var(--brand)', color: '#fff', borderRadius: '8px', fontWeight: 600, fontSize: '13px' }}>
-                Espace Salarié & Bulletins de Paie intégrés
+              <div className="lp-hero-ctas">
+                <Link className="lp-btn-cta-primary" href="/inscription">
+                  <Icon name="plus" size={16} /> Démarrer gratuitement
+                </Link>
+                <Link className="lp-btn-cta-secondary" href="/portail/connexion">
+                  <Icon name="user" size={16} /> Portail Salarié
+                </Link>
               </div>
-            </article>
-          </figure>
-        </section>
-
-        {/* SECTION 4 ÉTAPES CLÉS */}
-        <section className="land-steps" aria-labelledby="steps-title" style={{ padding: '60px 0' }}>
-          <h2 id="steps-title" style={{ textAlign: 'center', marginBottom: '36px', fontSize: '26px', fontWeight: 800 }}>
-            Toute votre gestion d’entreprise en 4 étapes
-          </h2>
-          <ol className="track" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', listStyle: 'none', padding: 0 }}>
-            {STEPS.map((s) => (
-              <li key={s.label} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <span className={`status ${s.cls}`} style={{ alignSelf: 'flex-start' }}>{s.label}</span>
-                <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.55, color: 'var(--muted)' }}>{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* SECTION NORMES LOCALES (TOGO & UEMOA) */}
-        <section className="land-local" aria-labelledby="local-title" style={{ padding: '60px 0' }}>
-          <div className="local-head" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>
-            <h2 id="local-title" style={{ fontSize: '26px', fontWeight: 800, margin: '0 0 8px' }}>
-              Pensé pour Lomé, Cotonou, Abidjan et Dakar
-            </h2>
-            <p className="hint" style={{ fontSize: '15px' }}>
-              Pas un logiciel étranger inadapté : les réalités juridiques, bancaires et mobiles de l’UEMOA sont intégrées au cœur de FactPay.
-            </p>
-          </div>
-
-          <dl className="specimens" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-            {LOCAL.map((x) => (
-              <div key={x.title} className="card" style={{ padding: '22px' }}>
-                <dt className="specimen" style={{ fontSize: '16px', fontWeight: 800, color: 'var(--brand)', marginBottom: '8px' }}>{x.specimen}</dt>
-                <dd style={{ margin: 0 }}>
-                  <strong style={{ display: 'block', fontSize: '15px', color: 'var(--ink)', marginBottom: '4px' }}>{x.title}</strong>
-                  <span style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5 }}>{x.text}</span>
-                </dd>
+              <div className="lp-hero-trust">
+                <span className="lp-hero-trust-item">
+                  <Icon name="lock" size={14} /> Données chiffrées & 2FA
+                </span>
+                <span className="lp-hero-trust-item">
+                  <Icon name="clock" size={14} /> Prise en main en 2 minutes
+                </span>
+                <span className="lp-hero-trust-item">
+                  <Icon name="cash" size={14} /> Sans carte bancaire
+                </span>
               </div>
-            ))}
-          </dl>
-        </section>
+            </div>
 
-        {/* SECTION RÉSUMÉ NET & TRÉSORERIE */}
-        <section className="land-net" aria-labelledby="net-title" style={{ padding: '60px 0' }}>
-          <div>
-            <h2 id="net-title" style={{ fontSize: '26px', fontWeight: 800, margin: '0 0 10px' }}>
-              Votre trésorerie réelle, pas seulement votre chiffre d'affaires
-            </h2>
-            <p className="hint" style={{ fontSize: '15px', lineHeight: 1.6 }}>
-              FactPay sépare ce que vous facturez, ce que vos clients ont déjà versé, les retenues fiscales appliquées et ce que vous devez provisionner pour les cotisations sociales (CNSS) et impôts. Vous savez exactement ce qui vous appartient.
-            </p>
-          </div>
-
-          <div className="receipt" aria-label="Exemple de calcul du net" style={{ padding: '24px', background: 'var(--paper)', borderRadius: '16px', border: '1px solid var(--line)' }}>
-            <span className="demo-tag" style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--brand)' }}>Suivi financier temps réel</span>
-            <dl style={{ margin: '14px 0 0' }}>
-              {NET.map((r) => (
-                <div key={r.label} className={r.rule ? 'rule' : ''} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: r.rule ? '2px solid var(--ink)' : '1px solid var(--line)' }}>
-                  <dt style={{ fontSize: '13.5px', color: 'var(--muted)' }}>
-                    {r.label}
-                    {r.note && <span className="sub" style={{ display: 'block', fontSize: '11.5px' }}>{r.note}</span>}
-                  </dt>
-                  <dd style={{ fontSize: '14px', fontWeight: 700 }}>
-                    {r.value < 0 ? `− ${money(-r.value, 'XOF')}` : money(r.value, 'XOF')}
-                  </dd>
+            {/* APERÇU DOCUMENT FACTURE & BULLETIN */}
+            <div>
+              <div className="lp-mockup">
+                <div className="lp-mockup-bar">
+                  <div className="lp-mockup-dots">
+                    <span className="lp-mockup-dot red"></span>
+                    <span className="lp-mockup-dot yellow"></span>
+                    <span className="lp-mockup-dot green"></span>
+                  </div>
+                  <CurrencySwitch main="F CFA" alt="€" />
                 </div>
-              ))}
-              <div className="net" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', marginTop: '6px' }}>
-                <dt style={{ fontSize: '16px', fontWeight: 800, color: 'var(--brand)' }}>Net disponible réel</dt>
-                <dd style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brand)' }}>{money(3825000, 'XOF')}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-      </main>
 
-      {/* BANDEAU FINAL D'APPEL À L'ACTION */}
-      <section className="land-close" aria-labelledby="close-title" style={{ padding: '80px 24px', textAlign: 'center', background: 'var(--band)', color: '#fff' }}>
-        <div className="close-inner" style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <h2 id="close-title" style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 14px', color: '#fff' }}>
-            Passez à la gestion professionnelle dès aujourd'hui.
-          </h2>
-          <p style={{ fontSize: '16px', color: '#A0AEC0', lineHeight: 1.6, margin: '0 0 28px' }}>
-            Facturation complète, fiches de paie conformes et portail collaborateur. Créez votre entreprise en 60 secondes.
-          </p>
-          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link className="button big light" href="/inscription" style={{ fontWeight: 700 }}>
-              Créer mon compte entreprise
-            </Link>
-            <Link className="button big secondary" href="/portail/connexion" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.25)' }}>
-              Accéder à l'espace salarié
-            </Link>
+                <div className="lp-mockup-body">
+                  <div className="lp-doc-header">
+                    <div>
+                      <span className="lp-doc-badge">Émise & Prête</span>
+                      <strong style={{ display: 'block', fontSize: '15px', color: '#0F172A', marginTop: '2px' }}>
+                        Facture FAC-FP481-0014
+                      </strong>
+                      <span style={{ fontSize: '12px', color: '#64748B' }}>Échéance : 15 octobre 2026</span>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '12.5px', color: '#475569' }}>
+                      <strong>Studio Tech SARL</strong><br />
+                      Lomé, Togo · NIF : 1000000000
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '14px', fontSize: '13px' }}>
+                    <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                      Facturé à
+                    </span>
+                    <strong style={{ color: '#0F172A' }}>Société Lumière UEMOA</strong>
+                  </div>
+
+                  <table className="lp-doc-table">
+                    <thead>
+                      <tr>
+                        <th>Prestation</th>
+                        <th className="n hide-xs">Qté</th>
+                        <th className="n">Montant</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {LINES.map((l) => (
+                        <tr key={l.description}>
+                          <td>{l.description}</td>
+                          <td className="n hide-xs" style={{ color: '#64748B' }}>{l.quantity} {l.unit}</td>
+                          <td className="n" style={{ fontWeight: 650 }}><Amount n={l.quantity * l.unit_price} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="lp-doc-totals">
+                    <div className="lp-doc-totals-row">
+                      <span>Total HT</span>
+                      <span style={{ fontWeight: 600 }}><Amount n={T.total} /></span>
+                    </div>
+                    <div className="lp-doc-totals-row">
+                      <span>Retenue à la source (5 %)</span>
+                      <span style={{ color: '#DC2626', fontWeight: 600 }}><Amount n={T.withholding} minus /></span>
+                    </div>
+                    <div className="lp-doc-totals-row final">
+                      <span>Net à payer</span>
+                      <span><Amount n={T.due} /></span>
+                    </div>
+                  </div>
+
+                  <div className="lp-doc-paymethods">
+                    <Icon name="cash" size={16} />
+                    <span><strong>Paiement Mobile :</strong> TMoney +228 90 00 00 00 · Flooz +228 99 00 00 00 · Virement Ecobank</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <p className="soon" style={{ marginTop: '24px', fontSize: '12.5px', color: '#718096' }}>
-            FactPay · Conçu pour les entreprises, créateurs et salariés d'Afrique de l'Ouest.
-          </p>
         </div>
       </section>
 
-      {/* PIED DE PAGE */}
-      <footer className="site-foot" style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <Logo height={28} />
-        <nav style={{ display: 'flex', gap: '20px', fontSize: '13px' }}>
-          <Link href="/portail/connexion">Espace Salarié</Link>
-          <Link href="/conditions">Conditions</Link>
-          <Link href="/confidentialite">Confidentialité</Link>
-          <Link href="/connexion">Se connecter</Link>
-        </nav>
+      {/* BANDEAU DE STATISTIQUES */}
+      <section className="lp-stats">
+        <div className="lp-container">
+          <div className="lp-stats-grid">
+            {STATS.map((s, i) => (
+              <div key={i} className="lp-stat-item">
+                <div className="lp-stat-number">
+                  <span style={{ color: 'var(--brand)', display: 'inline-flex' }}><Icon name={s.icon} size={24} /></span>
+                  <span>{s.number}</span>
+                </div>
+                <div className="lp-stat-label">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* LES 3 PILIERS DE FACTPAY */}
+      <section className="lp-section">
+        <div className="lp-container">
+          <div className="lp-section-head">
+            <div className="lp-badge">
+              <Icon name="briefcase" size={14} /> Fonctionnalités Clés
+            </div>
+            <h2 className="lp-section-title">Tout ce dont votre entreprise a besoin au quotidien</h2>
+            <p className="lp-section-subtitle">
+              Une plateforme moderne conçue pour simplifier la vie des dirigeants, comptables et salariés.
+            </p>
+          </div>
+
+          <div className="lp-pillars-grid">
+            {PILLARS.map((p, i) => (
+              <div key={i} className={`lp-pillar-card ${p.cls}`}>
+                <div className="lp-pillar-icon" style={{ color: 'var(--brand)' }}>
+                  <Icon name={p.icon} size={26} />
+                </div>
+                <h3 className="lp-pillar-title">{p.title}</h3>
+                <p className="lp-pillar-desc">{p.desc}</p>
+                <ul className="lp-pillar-list">
+                  {p.items.map((it, idx) => (
+                    <li key={idx}>
+                      <span style={{ color: '#059669', display: 'inline-flex' }}>
+                        <Icon name="check" size={15} />
+                      </span>
+                      <span>{it}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CONÇU POUR L'AFRIQUE DE L'OUEST */}
+      <section className="lp-section" style={{ background: '#FFFFFF', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+        <div className="lp-container">
+          <div className="lp-section-head">
+            <div className="lp-badge">
+              <Icon name="building" size={14} /> Ancrage Régional
+            </div>
+            <h2 className="lp-section-title">Pensé pour Lomé, Cotonou, Abidjan et Dakar</h2>
+            <p className="lp-section-subtitle">
+              Pas un outil étranger inadapté : les spécificités juridiques, fiscales, bancaires et mobiles de l’UEMOA sont intégrées au cœur de FactPay.
+            </p>
+          </div>
+
+          <div className="lp-local-grid">
+            {LOCAL.map((x, i) => (
+              <div key={i} className="lp-local-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: 'var(--brand)', display: 'inline-flex' }}>
+                    <Icon name={x.icon} size={16} />
+                  </span>
+                  <span className="lp-local-tag">{x.tag}</span>
+                </div>
+                <h3 className="lp-local-title">{x.title}</h3>
+                <p className="lp-local-text">{x.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SUIVI RÉEL DE LA TRÉSORERIE */}
+      <section className="lp-section">
+        <div className="lp-container">
+          <div className="lp-hero-grid" style={{ alignItems: 'center' }}>
+            <div>
+              <div className="lp-badge">
+                <Icon name="report" size={14} /> Trésorerie Claire
+              </div>
+              <h2 className="lp-section-title">Votre trésorerie réelle, pas juste votre chiffre d'affaires</h2>
+              <p className="lp-hero-desc">
+                FactPay distingue précisément ce que vous facturez, ce que vos clients ont effectivement réglé, les retenues fiscales appliquées et vos provisions pour cotisations sociales (CNSS).
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px', color: '#334155' }}>
+                  <span style={{ color: '#059669', display: 'inline-flex' }}><Icon name="check" size={18} /></span>
+                  <span><strong>Zéro surprise fiscale :</strong> vos provisions sont calculées automatiquement.</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px', color: '#334155' }}>
+                  <span style={{ color: '#059669', display: 'inline-flex' }}><Icon name="check" size={18} /></span>
+                  <span><strong>Gestion des avoirs :</strong> annulation propre et conforme en comptabilité.</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px', color: '#334155' }}>
+                  <span style={{ color: '#059669', display: 'inline-flex' }}><Icon name="check" size={18} /></span>
+                  <span><strong>Relances automatisées :</strong> rappels par e-mail programmés sans effort.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="lp-mockup" style={{ padding: '28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <strong style={{ fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="trendingUp" size={18} /> Tableau de bord financier 2026
+                </strong>
+                <span className="lp-doc-badge">Temps Réel</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {NET.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: r.rule ? '2px solid #0F172A' : '1px solid #F1F5F9' }}>
+                    <div>
+                      <div style={{ fontSize: '13.5px', color: '#475569', fontWeight: 550 }}>{r.label}</div>
+                      {r.note && <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>{r.note}</div>}
+                    </div>
+                    <div style={{ fontSize: '14.5px', fontWeight: 700, color: r.value < 0 ? '#DC2626' : '#0F172A' }}>
+                      {r.value < 0 ? `− ${money(-r.value, 'XOF')}` : money(r.value, 'XOF')}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', marginTop: '4px' }}>
+                  <strong style={{ fontSize: '16px', color: 'var(--brand)' }}>Net disponible réel</strong>
+                  <strong style={{ fontSize: '19px', color: 'var(--brand)' }}>{money(3825000, 'XOF')}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="lp-section" style={{ background: '#FFFFFF', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+        <div className="lp-container">
+          <div className="lp-section-head">
+            <div className="lp-badge">
+              <Icon name="help" size={14} /> Questions Fréquentes
+            </div>
+            <h2 className="lp-section-title">Tout ce que vous devez savoir sur FactPay</h2>
+            <p className="lp-section-subtitle">
+              Des réponses claires pour vous lancer en toute sérénité.
+            </p>
+          </div>
+
+          <div className="lp-faq-grid">
+            {FAQS.map((f, i) => (
+              <div key={i} className="lp-faq-card">
+                <h3 className="lp-faq-q">
+                  <span style={{ color: 'var(--brand)', display: 'inline-flex' }}>
+                    <Icon name="help" size={18} />
+                  </span>
+                  <span>{f.q}</span>
+                </h3>
+                <p className="lp-faq-a">{f.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA BANNER FINAL */}
+      <section className="lp-cta-section">
+        <div className="lp-container">
+          <div className="lp-cta-box">
+            <h2 className="lp-cta-title">
+              Prêt à simplifier votre facturation et vos paies ?
+            </h2>
+            <p className="lp-cta-desc">
+              Rejoignez les entreprises et créateurs qui gagnent du temps chaque mois. Créez votre compte en 60 secondes.
+            </p>
+            <div className="lp-cta-buttons">
+              <Link className="lp-cta-btn-white" href="/inscription">
+                <Icon name="plus" size={16} /> Créer mon compte entreprise
+              </Link>
+              <Link className="lp-cta-btn-ghost" href="/portail/connexion">
+                <Icon name="user" size={16} /> Accéder au portail salarié
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="lp-footer">
+        <div className="lp-container">
+          <div className="lp-footer-inner">
+            <Logo height={32} />
+            <div className="lp-footer-links">
+              <Link href="/portail/connexion">Espace Salarié</Link>
+              <Link href="/conditions">Conditions</Link>
+              <Link href="/confidentialite">Confidentialité</Link>
+              <Link href="/connexion">Connexion Entreprise</Link>
+            </div>
+            <div className="lp-footer-copy">
+              © 2026 FactPay. Conçu pour les entreprises et équipes d'Afrique de l'Ouest.
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
