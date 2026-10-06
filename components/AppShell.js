@@ -37,15 +37,32 @@ export default function AppShell({
   const profileRef = useRef(null);
 
   // Factures programmées dont l'heure vient de passer : la tâche quotidienne ne passe qu'une fois
-  // par jour, on ne veut pas laisser attendre une facture prévue pour l'après-midi. Le serveur
-  // ignore les appels répétés (au plus un par minute), ici c'est simplement pour ne pas le
-  // solliciter à chaque changement de page.
+  // par jour, on ne veut pas laisser attendre une facture prévue pour l'après-midi.
+  // C'est le seul déclencheur en dehors du cron : il doit repasser régulièrement, sinon une facture
+  // qui échoit pendant que l'onglet reste ouvert n'attendrait qu'une actualisation manuelle.
+  // Le serveur borne lui-même les appels (au plus un par minute), l'intervalle suit le même rythme
+  // pour ne pas lui envoyer d'appels inutiles.
   useEffect(() => {
     let stop = false;
-    flushDueSends().then((r) => {
-      if (!stop && r?.sent) router.refresh();
-    }).catch(() => {});
-    return () => { stop = true; };
+    const check = () => {
+      if (document.visibilityState === 'hidden') return;
+      flushDueSends()
+        .then((r) => { if (!stop && r?.sent) router.refresh(); })
+        .catch(() => { /* connexion perdue : on réessaiera à la minute suivante */ });
+    };
+    check();
+    const timer = setInterval(check, 60_000);
+    const reshow = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', reshow);
+    window.addEventListener('focus', reshow);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', reshow);
+      window.removeEventListener('focus', reshow);
+    };
+    // À chaque changement de page aussi : un envoi vient souvent d'être programmé, le serveur
+    // filtre lui-même les appels trop rapprochés, donc la requête reste anodine.
   }, [path]);
 
   // Fermer la sidebar et le menu profil lors d'un changement de page
