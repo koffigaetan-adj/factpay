@@ -11,6 +11,8 @@
   --wait: #8F5608;
   --late: #A63A2E;
   --check: #2B4C7E;
+  --violet: #6E39C4;       /* accents des KPI (Actifs, Conversion…) */
+  --sky: #0284C7;          /* accent bleu clair des KPI (Portail) */
   --brand-text: #2B4C7E;   /* liens et textes de couleur sur fond clair */
   --band: #1A2433;         /* bandeaux sombres : barre du haut, fin de l'accueil */
   --selected-bg: #1A2433;  /* onglet ou bouton choisi */
@@ -45,6 +47,8 @@
     --paid: #4CC38A;
     --wait: #E3A24F;
     --late: #F08477;
+    --violet: #A78BFA;
+    --sky: #38BDF8;
     --check: #8DB4F0;
     --brand-text: #8DB4F0;
     --band: #0A0E14;
@@ -78,6 +82,8 @@
     --paid: #4CC38A;
     --wait: #E3A24F;
     --late: #F08477;
+    --violet: #A78BFA;
+    --sky: #38BDF8;
     --check: #8DB4F0;
     --brand-text: #8DB4F0;
     --band: #0A0E14;
@@ -961,8 +967,29 @@ input.otp { font-size: 22px; letter-spacing: 6px; text-align: center; font-varia
 .lines-edit .c-amount { width: 130px; }
 .lines-edit input, .lines-edit select { height: 42px; margin: 0; padding-left: 9px; padding-right: 9px; border-color: color-mix(in srgb, var(--field) 60%, transparent); background: transparent; }
 .lines-edit input:focus, .lines-edit select:focus { background: var(--paper); border-color: var(--brand); }
-.remove { background: none; border: 0; color: var(--muted); font-size: 20px; padding: 4px 8px; line-height: 1; transition: color 0.2s; }
+.remove { background: none; border: 0; color: var(--muted); font-size: 20px; padding: 6px 10px; line-height: 1; transition: color 0.2s; min-width: 40px; min-height: 40px; }
 .remove:hover { color: var(--late); background: none; }
+
+/* Sur téléphone les colonnes imposeraient ~690 px de largeur minimale (220 + 90 + 110 +
+   130 + 130) : le tableau devient une pile de cartes pour saisir un prix sans faire
+   défiler horizontalement. Les intitulés, masqués avec l'en-tête, passent en data-label. */
+@media (max-width: 560px) {
+  .lines-edit, .lines-edit tbody, .lines-edit tr, .lines-edit td { display: block; width: 100%; }
+  .lines-edit thead { display: none; }
+  .lines-edit tbody tr { position: relative; border: 1px solid var(--line); border-radius: 12px;
+    padding: 6px 46px 4px 12px; margin-bottom: 12px; background: var(--paper); }
+  .lines-edit tbody tr:last-child { margin-bottom: 0; }
+  .lines-edit tbody tr:hover td, .lines-edit tbody tr:nth-child(even) td { background: transparent; }
+  .lines-edit td { padding: 6px 0; border-bottom: 0; }
+  .lines-edit td[data-label]::before { content: attr(data-label); display: block; font-size: 12px;
+    font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .lines-edit .c-desc, .lines-edit .c-qty, .lines-edit .c-unit, .lines-edit .c-price, .lines-edit .c-amount { min-width: 0; width: auto; }
+  .lines-edit input, .lines-edit select { width: 100%; }
+  .lines-edit td.n { text-align: right; }
+  .lines-edit td:last-child { position: absolute; top: 4px; right: 4px; width: auto; padding: 0; }
+  .line-actions { flex-direction: column; }
+  .line-actions > * { width: 100%; justify-content: center; }
+}
 
 /* Éditeur de facture - Zone Totaux (Style Ticket Premium) */
 .sum-wrapper { display: flex; flex-direction: column; align-items: flex-end; margin-top: 24px; width: 100%; }
@@ -1149,7 +1176,9 @@ button.link.danger-link { color: var(--late); justify-self: start; }
 .modal-box { padding: 22px 24px 24px; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
 .modal-head h2 { margin: 0; }
-.modal-close { background: none; border: 0; color: var(--muted); font-size: 26px; line-height: 1; padding: 2px 8px; border-radius: 6px; }
+/* Cible tactile de 40 px minimum (WCAG 2.5.5) : la croix doit rester facile à viser,
+   même sur mobile, sans grossir le glyphe. */
+.modal-close { background: none; border: 0; color: var(--muted); font-size: 26px; line-height: 1; min-width: 40px; min-height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; }
 .modal-close:hover { background: var(--bg); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .modal[open] { animation: none; } }
 
@@ -1336,8 +1365,8 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 1px solid #fde68a;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--wait) 10%, var(--paper)) 0%, color-mix(in srgb, var(--wait) 18%, var(--paper)) 100%);
+  border: 1px solid color-mix(in srgb, var(--wait) 45%, var(--line));
   border-radius: 14px;
   padding: 16px 20px;
   margin-bottom: 24px;
@@ -1399,7 +1428,24 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
 }
+
+/* Recherche filtrée côté serveur (GET) : à droite des pilules sur grand écran, dessous sinon */
+.doc-search { position: relative; display: flex; align-items: center; flex: 1 1 240px; max-width: 340px; margin: 0; }
+.doc-search input { width: 100%; height: 38px; margin: 0; padding: 0 34px 0 36px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: 14px; }
+.doc-search input::placeholder { color: var(--muted); }
+.doc-search input:focus { border-color: var(--brand); }
+.doc-search .doc-search-icon { position: absolute; left: 13px; color: var(--muted); pointer-events: none; }
+.doc-search-clear { position: absolute; right: 6px; width: 26px; height: 26px; display: flex; align-items: center;
+  justify-content: center; border-radius: 50%; color: var(--muted); font-size: 18px; line-height: 1; text-decoration: none; }
+.doc-search-clear:hover { background: var(--bg); color: var(--ink); }
+@media (max-width: 640px) { .doc-search { max-width: none; } }
 
 .doc-tabs-bar {
   display: flex;
@@ -1430,15 +1476,15 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
 }
 
 .doc-tab-pill.is-active {
-  background: #111418;
-  color: #ffffff;
-  border-color: #111418;
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+  border-color: var(--selected-bg);
   font-weight: 600;
 }
 
 .doc-tab-pill.is-active .doc-tab-count {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--selected-fg) 20%, transparent);
+  color: var(--selected-fg);
 }
 
 .doc-tab-count {
@@ -1454,8 +1500,8 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
 }
 
 .doc-tab-count.count-late {
-  background: #fee2e2;
-  color: #dc2626;
+  background: color-mix(in srgb, var(--late) 18%, var(--paper));
+  color: var(--late);
 }
 
 /* Pile de documents */
@@ -1513,12 +1559,12 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
   flex-shrink: 0;
 }
 
-.doc-file-pdf { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
-.doc-file-doc { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
-.doc-file-xls { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
-.doc-file-img { background: #f3e8ff; color: #9333ea; border: 1px solid #e9d5ff; }
-.doc-file-txt { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-.doc-file-fic { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.doc-file-pdf { background: color-mix(in srgb, var(--late) 16%, var(--paper)); color: var(--late); border: 1px solid color-mix(in srgb, var(--late) 32%, var(--line)); }
+.doc-file-doc { background: color-mix(in srgb, var(--sky) 16%, var(--paper)); color: var(--sky); border: 1px solid color-mix(in srgb, var(--sky) 32%, var(--line)); }
+.doc-file-xls { background: color-mix(in srgb, var(--paid) 16%, var(--paper)); color: var(--paid); border: 1px solid color-mix(in srgb, var(--paid) 32%, var(--line)); }
+.doc-file-img { background: color-mix(in srgb, var(--violet) 16%, var(--paper)); color: var(--violet); border: 1px solid color-mix(in srgb, var(--violet) 32%, var(--line)); }
+.doc-file-txt { background: color-mix(in srgb, var(--ink) 8%, var(--paper)); color: var(--muted); border: 1px solid var(--line); }
+.doc-file-fic { background: color-mix(in srgb, var(--ink) 8%, var(--paper)); color: var(--muted); border: 1px solid var(--line); }
 
 .doc-item-info {
   display: flex;
@@ -1605,18 +1651,18 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
 }
 
 .doc-expiry-pill.late {
-  background: #fee2e2;
-  color: #dc2626;
+  background: color-mix(in srgb, var(--late) 16%, var(--paper));
+  color: var(--late);
 }
 
 .doc-expiry-pill.wait {
-  background: #fef3c7;
-  color: #b45309;
+  background: color-mix(in srgb, var(--wait) 16%, var(--paper));
+  color: var(--wait);
 }
 
 .doc-expiry-pill.ok {
-  background: #dcfce7;
-  color: #16a34a;
+  background: color-mix(in srgb, var(--paid) 16%, var(--paper));
+  color: var(--paid);
 }
 
 .doc-item-note {
@@ -1669,9 +1715,9 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
 }
 
 .doc-btn-delete:hover {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
+  background: color-mix(in srgb, var(--late) 16%, var(--paper));
+  border-color: color-mix(in srgb, var(--late) 32%, var(--line));
+  color: var(--late);
 }
 
 /* État vide */
@@ -1843,9 +1889,9 @@ img.brand-badge { background: #fff; border: 1px solid var(--line); padding: 1px;
 }
 
 .month-pill.is-selected {
-  background: #111418;
-  color: #ffffff;
-  border-color: #111418;
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+  border-color: var(--selected-bg);
   font-weight: 650;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
@@ -2067,8 +2113,8 @@ details.cancel form { margin-top: 12px; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #111418;
-  color: #ffffff;
+  background: var(--selected-bg);
+  color: var(--selected-fg);
   border: none;
   border-radius: 999px;
   padding: 10px 18px;
@@ -2430,6 +2476,24 @@ details.cancel form { margin-top: 12px; }
   text-overflow: ellipsis;
   line-height: 1.2;
 }
+
+/* Teintes des cartes KPI : pilotées par data-tone et dérivées des variables de thème.
+   Avant, les pastilles étaient écrites en dur (#eef2ff, #ecfdf5…) et restaient claires
+   en mode sombre. La carte alerte met en avant sa bordure avec la même teinte. */
+.page-kpi-card[data-tone] { --kpi-acc: var(--brand); }
+.page-kpi-card[data-tone="green"] { --kpi-acc: var(--paid); }
+.page-kpi-card[data-tone="amber"] { --kpi-acc: var(--wait); }
+.page-kpi-card[data-tone="red"] { --kpi-acc: var(--late); }
+.page-kpi-card[data-tone="violet"] { --kpi-acc: var(--violet); }
+.page-kpi-card[data-tone="sky"] { --kpi-acc: var(--sky); }
+.page-kpi-card[data-tone="neutral"] { --kpi-acc: var(--muted); }
+.page-kpi-card.is-alert {
+  border-color: color-mix(in srgb, var(--kpi-acc) 45%, var(--line));
+  background: color-mix(in srgb, var(--kpi-acc) 7%, var(--paper));
+}
+.page-kpi-icon { background: color-mix(in srgb, var(--kpi-acc, var(--brand)) 14%, var(--paper)); color: var(--kpi-acc, var(--brand)); }
+/* Seuls les libellés vraiment colorés portent data-tint : le total facturé reste en encre */
+.page-kpi-value[data-tint], .page-kpi-hint[data-tint] { color: var(--kpi-acc, var(--ink)); }
 
 /* Tâches à compléter */
 .dash-badge-count {

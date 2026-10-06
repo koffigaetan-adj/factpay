@@ -102,13 +102,13 @@ export default async function Page({ searchParams }) {
 
       {/* KPI Cards style PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card" style={pendingRequests.length > 0 ? { borderColor: '#fed7aa', background: '#fffaf0' } : {}}>
-          <div className="page-kpi-icon" style={{ background: pendingRequests.length > 0 ? '#ffedd5' : '#f1f5f9', color: pendingRequests.length > 0 ? '#ea580c' : '#64748b' }}>
+        <div className={`page-kpi-card ${pendingRequests.length > 0 ? 'is-alert' : ''}`.trim()} data-tone={pendingRequests.length > 0 ? 'amber' : 'neutral'}>
+          <div className="page-kpi-icon">
             <Icon name="clock" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">À valider</span>
-            <span className="page-kpi-value" style={{ color: pendingRequests.length > 0 ? '#ea580c' : 'var(--ink)' }}>
+            <span className="page-kpi-value" data-tint={pendingRequests.length > 0 ? 'true' : undefined}>
               {pendingRequests.length}
             </span>
             <span className="page-kpi-hint">
@@ -117,19 +117,19 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#ecfdf5', color: '#16a34a' }}>
+        <div className="page-kpi-card" data-tone="green">
+          <div className="page-kpi-icon">
             <Icon name="check" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Approuvés</span>
-            <span className="page-kpi-value" style={{ color: '#16a34a' }}>{approvedRequests.length}</span>
+            <span className="page-kpi-value" data-tint>{approvedRequests.length}</span>
             <span className="page-kpi-hint">Validées</span>
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+        <div className="page-kpi-card" data-tone="sky">
+          <div className="page-kpi-icon">
             <Icon name="calendar" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -139,8 +139,8 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#f3e8ff', color: '#7e22ce' }}>
+        <div className="page-kpi-card" data-tone="violet">
+          <div className="page-kpi-icon">
             <Icon name="people" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -201,8 +201,8 @@ export default async function Page({ searchParams }) {
                               width: '32px',
                               height: '32px',
                               borderRadius: '50%',
-                              background: '#eef2ff',
-                              color: '#4338ca',
+                              background: 'color-mix(in srgb, var(--violet) 14%, var(--paper))',
+                              color: 'var(--violet)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',

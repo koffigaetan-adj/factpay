@@ -101,7 +101,7 @@ export default function CompanyFields({ c = {}, sections = ['entreprise', 'paiem
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Logo</h3>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
               {c.logo_src && (
-                <div style={{ flex: 'none', width: '88px', height: '88px', padding: '8px', border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ flex: 'none', width: '88px', height: '88px', padding: '8px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <img src={c.logo_src} alt="Logo actuel" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
               )}

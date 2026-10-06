@@ -71,7 +71,8 @@ export default function AppShell({
     setProfileOpen(false);
   }, [path]);
 
-  // Fermer le menu profil quand on clique en dehors
+  // Fermer le menu profil quand on clique en dehors, ou sur Échap — au clavier, Échap est
+  // la seule façon de refermer un menu sans y retoucher du doigt.
   useEffect(() => {
     if (!profileOpen) return;
     const handleClickOutside = (e) => {
@@ -79,8 +80,18 @@ export default function AppShell({
         setProfileOpen(false);
       }
     };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setProfileOpen(false);
+        profileRef.current?.querySelector('button')?.focus();
+      }
+    };
     document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [profileOpen]);
 
   return (
@@ -109,7 +120,7 @@ export default function AppShell({
               className="topbar-profile-btn"
               onClick={() => setProfileOpen(!profileOpen)}
               aria-expanded={profileOpen}
-              aria-haspopup="menu"
+              aria-controls="menu-profil"
             >
               <span className="topbar-avatar">
                 {avatarUrl ? (
@@ -132,9 +143,10 @@ export default function AppShell({
               </span>
             </button>
 
-            {/* Menu déroulant profil & entreprise */}
+            {/* Menu déroulant profil & entreprise : un simple panneau de liens, pas un menu
+                d'application (il contient un en-tête et un formulaire, donc pas de role="menu") */}
             {profileOpen && (
-              <div className="topbar-dropdown" role="menu">
+              <div className="topbar-dropdown" id="menu-profil" aria-label="Mon compte et mon entreprise">
                 <div className="topbar-dropdown-header">
                   <span className="dropdown-user-name">{userName}</span>
                   <span className="dropdown-email">{email}</span>

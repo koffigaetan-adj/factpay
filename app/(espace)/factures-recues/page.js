@@ -48,8 +48,8 @@ export default async function Page({ searchParams }) {
 
       {/* KPI Cards style PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eef2ff', color: '#4338ca' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="inbox" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -59,38 +59,38 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="clock" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">À régler</span>
-            <span className="page-kpi-value" style={{ color: '#2563eb' }}>{money(totalPending, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(totalPending, cur)}</span>
             <span className="page-kpi-hint">{pendingInvoices.length} en attente</span>
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+        <div className="page-kpi-card" data-tone="green">
+          <div className="page-kpi-icon">
             <Icon name="check" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Payées</span>
-            <span className="page-kpi-value" style={{ color: '#059669' }}>{money(totalPaid, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(totalPaid, cur)}</span>
             <span className="page-kpi-hint">{paidInvoices.length} réglée{paidInvoices.length > 1 ? 's' : ''}</span>
           </div>
         </div>
 
-        <div className="page-kpi-card" style={lateInvoices.length > 0 ? { borderColor: '#fecaca', background: '#fffaf0' } : {}}>
-          <div className="page-kpi-icon" style={{ background: lateInvoices.length > 0 ? '#fee2e2' : '#f1f5f9', color: lateInvoices.length > 0 ? '#dc2626' : '#64748b' }}>
+        <div className={`page-kpi-card ${lateInvoices.length > 0 ? 'is-alert' : ''}`.trim()} data-tone={lateInvoices.length > 0 ? 'red' : 'neutral'}>
+          <div className="page-kpi-icon">
             <Icon name="alert" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">En retard</span>
-            <span className="page-kpi-value" style={{ color: lateInvoices.length > 0 ? '#dc2626' : 'var(--ink)' }}>
+            <span className="page-kpi-value" data-tint={lateInvoices.length > 0 ? 'true' : undefined}>
               {money(totalLate, cur)}
             </span>
-            <span className="page-kpi-hint" style={{ color: lateInvoices.length > 0 ? '#b91c1c' : 'var(--muted)' }}>
+            <span className="page-kpi-hint" data-tint={lateInvoices.length > 0 ? 'true' : undefined}>
               {lateInvoices.length} en retard
             </span>
           </div>

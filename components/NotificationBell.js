@@ -12,6 +12,7 @@ export default function NotificationBell({ initialUnread = 0 }) {
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(initialUnread);
   const [items, setItems] = useState(null); // null = pas encore chargées
+  const [failed, setFailed] = useState(false);
   const box = useRef(null);
 
   useEffect(() => {
@@ -27,25 +28,34 @@ export default function NotificationBell({ initialUnread = 0 }) {
   const toggle = async () => {
     if (open) { setOpen(false); return; }
     setOpen(true);
-    if (unread > 0) { setUnread(0); markNotificationsRead().catch(() => {}); }
+    // On charge avant de marquer lu : si la lecture échoue, le badge et le panneau restent
+    // cohérents — sinon on affiche « Rien pour l'instant » sur des notifications jamais vues.
+    let loaded = null;
     try {
-      setItems(await listMyNotifications());
+      loaded = await listMyNotifications();
     } catch {
-      setItems([]);
+      loaded = null; // on réessaiera au prochain clic
+    }
+    if (loaded) {
+      setFailed(false);
+      setItems(loaded);
+      if (unread > 0) { setUnread(0); markNotificationsRead().catch(() => {}); }
+    } else {
+      setFailed(true);
     }
   };
 
   return (
     <div className="bell" ref={box}>
-      <button type="button" className="sb-icon-btn bell-btn" onClick={toggle} aria-label="Notifications" aria-expanded={open} aria-haspopup="true">
+      <button type="button" className="sb-icon-btn bell-btn" onClick={toggle} aria-label="Notifications" aria-expanded={open} aria-controls="panneau-notifications">
         <Icon name="bell" size={20} />
         {unread > 0 && <span className="bell-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
-        <div className="bell-pop" role="menu" aria-label="Notifications">
+        <div className="bell-pop" id="panneau-notifications" aria-label="Notifications">
           <div className="bell-head">Notifications</div>
           {items === null ? (
-            <p className="help" style={{ padding: '16px' }}>Chargement...</p>
+            <p className="help" style={{ padding: '16px' }}>{failed ? 'Impossible de charger les notifications : réessaie.' : 'Chargement...'}</p>
           ) : items.length === 0 ? (
             <p className="help" style={{ padding: '16px' }}>Rien pour l'instant.</p>
           ) : (

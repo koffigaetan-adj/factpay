@@ -104,7 +104,20 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
   // change, date d'envoi — pour ne pas bloquer un brouillon incomplet). Sans ce contrôle, un clic
   // sans client choisi partait quand même vers le serveur, qui refusait et rechargeait la page à
   // vide : tout ce qui avait été tapé disparaissait.
+  // On rejoue ici, dans le même ordre, les refus du serveur (app/actions.js → saveInvoice) : leur
+  // réponse est un renvoi GET qui repart de zéro, donc un contrôle manquant coûte toute la saisie.
   const handleSubmit = (e) => {
+    const field = (name) => {
+      const el = e.currentTarget.elements.namedItem(name);
+      return el && typeof el.value === 'string' ? el.value : '';
+    };
+    const fail = (message, name) => {
+      e.preventDefault();
+      setFormError(message);
+      const el = name ? e.currentTarget.elements.namedItem(name) : null;
+      if (el) { el.reportValidity?.(); el.focus?.(); }
+    };
+
     const clientField = e.currentTarget.elements.namedItem('client_id');
     if (!clientField.value) {
       e.preventDefault();
@@ -117,6 +130,18 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
       e.preventDefault();
       setFormError('Ajoute au moins une ligne avec une description et une quantité.');
       return;
+    }
+    if (alt && !fixed && !(toNumber(field('alt_rate')) > 0)) {
+      fail(`Indique le taux de change : 1 ${currency} = combien de ${alt} ?`, 'alt_rate');
+      return;
+    }
+    // Le bouton « Programmer l'envoi » est le seul qui engage la date d'envoi côté serveur
+    const intent = e.nativeEvent?.submitter?.value;
+    if (intent === 'programmer') {
+      const at = new Date(field('send_on'));
+      if (Number.isNaN(at.getTime())) { fail("Choisis la date et l'heure d'envoi."); return; }
+      if (at.getTime() < Date.now() - 5 * 60 * 1000) { fail('Choisis une date et une heure à venir.'); return; }
+      if (at.getTime() > Date.now() + 366 * 86400 * 1000) { fail("L'envoi peut être programmé un an à l'avance au plus."); return; }
     }
     setFormError('');
   };
@@ -204,19 +229,19 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
             <tbody>
               {numeric.map((l, i) => (
                 <tr key={l.key} className={l.kind !== 'service' ? `k-${l.kind}` : undefined}>
-                  <td>
+                  <td data-label="Description">
                     <input aria-label={`Description, ligne ${i + 1}`} value={lines[i].description} onChange={(e) => update(l.key, 'description', e.target.value)} placeholder="Ex. Développement" />
                     {l.kind === 'period' && <span className="line-tag">Heures de la période travaillée</span>}
                     {l.kind === 'prime' && <span className="line-tag prime">Prime · sans retenue</span>}
                   </td>
-                  <td>
+                  <td data-label="Quantité">
                     {l.kind === 'prime' ? (
                       <span className="times">×<input aria-label={`Nombre de primes, ligne ${i + 1}`} inputMode="decimal" value={lines[i].quantity} onChange={(e) => update(l.key, 'quantity', decimalOnly(e.target.value))} /></span>
                     ) : l.kind === 'period'
                       ? <output className="qty-locked" aria-label={`Quantité, ligne ${i + 1}`}>{hoursLabel(l.quantity)}</output>
                       : <input aria-label={`Quantité, ligne ${i + 1}`} inputMode="decimal" value={lines[i].quantity} onChange={(e) => update(l.key, 'quantity', decimalOnly(e.target.value))} />}
                   </td>
-                  <td>
+                  <td data-label="Unité">
                     {l.kind === 'prime' ? null : l.kind === 'period'
                       ? <span className="qty-locked">heure(s)</span>
                       : (
@@ -225,12 +250,12 @@ export default function InvoiceEditor({ clients, invoice, defaultCurrency, defau
                         </select>
                       )}
                   </td>
-                  <td>
+                  <td data-label="Prix unitaire">
                     <input aria-label={`${{ period: 'Taux horaire', prime: 'Montant de la prime' }[l.kind] || 'Prix unitaire'}, ligne ${i + 1}`} inputMode="decimal"
                       value={lines[i].unit_price} onChange={(e) => update(l.key, 'unit_price', decimalOnly(e.target.value))}
                       placeholder={{ period: 'Taux horaire', prime: 'Montant' }[l.kind] || '0'} />
                   </td>
-                  <td className="n">{money(l.quantity * l.unit_price, currency)}</td>
+                  <td className="n" data-label="Montant">{money(l.quantity * l.unit_price, currency)}</td>
                   <td>
                     {(lines.length > 1 || l.kind === 'period') && (
                       <button type="button" className="remove" aria-label={`Retirer la ligne ${i + 1}`}

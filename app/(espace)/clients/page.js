@@ -8,21 +8,27 @@ import { money } from '@/lib/money';
 import ClientFields from '@/components/ClientFields';
 import Modal from '@/components/Modal';
 import Icon from '@/components/Icon';
+import ListSearch from '@/components/ListSearch';
 import { pubId } from '@/lib/ids';
 
 export const metadata = { title: 'Clients' };
 
 export default async function Page({ searchParams }) {
   const { company } = await requireCompany();
-  const clients = await q(`SELECT c.*, count(i.id)::int AS invoice_count,
+  const sp = await searchParams;
+  const rows = await q(`SELECT c.*, count(i.id)::int AS invoice_count,
       coalesce(sum(i.amount_due) FILTER (WHERE i.status IN ('emise', 'envoyee', 'signalee')), 0) AS open_total
     FROM clients c LEFT JOIN invoices i ON i.client_id = c.id
     WHERE c.company_id = $1 GROUP BY c.id ORDER BY c.name`, [company.id]);
+  const term = String(sp.q || '').trim().toLowerCase();
+  // Les KPI restent calculés sur tout le répertoire ; la recherche ne filtre que le tableau
+  const clients = rows.filter((c) => !term || [c.name, c.email].filter(Boolean)
+    .some((s) => String(s).toLowerCase().includes(term)));
 
   const cur = company.currency || 'XOF';
-  const totalOpen = clients.reduce((s, c) => s + (Number(c.open_total) || 0), 0);
-  const activeClients = clients.filter((c) => c.invoice_count > 0);
-  const totalInvoicesCount = clients.reduce((s, c) => s + (Number(c.invoice_count) || 0), 0);
+  const totalOpen = rows.reduce((s, c) => s + (Number(c.open_total) || 0), 0);
+  const activeClients = rows.filter((c) => c.invoice_count > 0);
+  const totalInvoicesCount = rows.reduce((s, c) => s + (Number(c.invoice_count) || 0), 0);
 
   return (
     <ModuleLayout
@@ -42,19 +48,19 @@ export default async function Page({ searchParams }) {
 
       {/* KPI Cards style PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eef2ff', color: '#4338ca' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="user" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Clients</span>
-            <span className="page-kpi-value">{clients.length}</span>
+            <span className="page-kpi-value">{rows.length}</span>
             <span className="page-kpi-hint">{activeClients.length} actifs</span>
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
+        <div className="page-kpi-card" data-tone="amber">
+          <div className="page-kpi-icon">
             <Icon name="invoice" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -64,19 +70,22 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="clock" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">À encaisser</span>
-            <span className="page-kpi-value" style={{ color: '#2563eb' }}>{money(totalOpen, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(totalOpen, cur)}</span>
             <span className="page-kpi-hint">Solde en attente</span>
           </div>
         </div>
       </div>
 
       <section className="doc-section">
+        <div className="doc-filter-header">
+          <ListSearch action="/clients" query={String(sp.q || '')} placeholder="Nom ou e-mail…" />
+        </div>
         {clients.length ? (
           <div className="scroll">
             <table>
@@ -100,8 +109,8 @@ export default async function Page({ searchParams }) {
                               width: '32px',
                               height: '32px',
                               borderRadius: '50%',
-                              background: '#f1f5f9',
-                              color: '#475569',
+                              background: 'var(--bg)',
+                              color: 'var(--muted)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -121,7 +130,7 @@ export default async function Page({ searchParams }) {
                         </div>
                       </td>
                       <td className="n" style={{ fontWeight: 600 }}>{c.invoice_count}</td>
-                      <td className="n" style={{ fontWeight: 750, color: c.open_total > 0 ? '#2563eb' : 'var(--ink)' }}>
+                      <td className="n" style={{ fontWeight: 750, color: c.open_total > 0 ? 'var(--brand-text)' : 'var(--ink)' }}>
                         {money(c.open_total, company.currency)}
                       </td>
                       <td className="n">
@@ -141,8 +150,17 @@ export default async function Page({ searchParams }) {
             <div className="doc-empty-icon">
               <Icon name="user" size={32} />
             </div>
-            <p style={{ fontWeight: 650, color: 'var(--ink)', margin: '0 0 4px' }}>Aucun client pour l'instant</p>
-            <p className="sub" style={{ margin: 0 }}>Cliquez sur « Nouveau client » pour ajouter votre premier partenaire.</p>
+            {term ? (
+              <>
+                <p style={{ fontWeight: 650, color: 'var(--ink)', margin: '0 0 4px' }}>Aucun client ne correspond à «&nbsp;{String(sp.q)}&nbsp;»</p>
+                <p className="sub" style={{ margin: 0 }}>Vérifie le nom ou l'e-mail, ou efface la recherche.</p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontWeight: 650, color: 'var(--ink)', margin: '0 0 4px' }}>Aucun client pour l'instant</p>
+                <p className="sub" style={{ margin: 0 }}>Cliquez sur « Nouveau client » pour ajouter votre premier partenaire.</p>
+              </>
+            )}
           </div>
         )}
       </section>

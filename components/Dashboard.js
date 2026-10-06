@@ -81,11 +81,20 @@ export default function Dashboard({
         setActionMenuOpen(false);
       }
     }
+    // Échap : la seule façon de refermer le menu au clavier (le clic extérieur ne couvre pas)
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setActionMenuOpen(false);
+        actionMenuRef.current?.querySelector('button')?.focus();
+      }
+    }
     if (actionMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [actionMenuOpen]);
 
@@ -237,13 +246,14 @@ export default function Dashboard({
             className="dash-action-btn"
             onClick={() => setActionMenuOpen(!actionMenuOpen)}
             aria-expanded={actionMenuOpen}
+            aria-controls="menu-nouvelle-action"
           >
             <span>Nouvelle action</span>
             <Icon name="chevronDown" size={14} />
           </button>
 
           {actionMenuOpen && (
-            <div className="dash-action-dropdown">
+            <div className="dash-action-dropdown" id="menu-nouvelle-action" aria-label="Nouvelle action">
               <div className="dash-action-group">
                 <span className="dash-action-group-title">Facturation & Devis</span>
                 <Link href="/factures/nouvelle" className="dash-action-item" onClick={() => setActionMenuOpen(false)}>
@@ -477,14 +487,21 @@ export default function Dashboard({
           </div>
           <span className="muted" style={{ fontWeight: '600', fontSize: '15px' }}>Total {money(cashed, cur)}</span>
         </div>
-        <div className="bars" role="img" aria-label={`Montants encaissés chaque mois en ${year}. Le détail est dans le tableau qui suit.`}>
+        {/* role="group" et non role="img" : role="img" aplatit ses descendants, ce qui rendrait
+            inaudibles les colonnes pourtant focusables au clavier. */}
+        <div className="bars" role="group" aria-label={`Montants encaissés chaque mois en ${year}. Le détail est dans le tableau qui suit.`}>
           <div className="bars-axis" aria-hidden="true">
             {[...ticks].reverse().map((t) => <span key={t}>{compact(t)}</span>)}
           </div>
           <div className="bars-plot">
             {ticks.map((t) => <span key={t} className="grid" style={{ bottom: `${(t / top) * 100}%` }} aria-hidden="true" />)}
             {byMonth.map((v, m) => (
-              <div key={m} className={`bar-col${m === thisMonth ? ' now' : ''}${m > thisMonth ? ' future' : ''}`} tabIndex={0}>
+              <div
+                key={m}
+                className={`bar-col${m === thisMonth ? ' now' : ''}${m > thisMonth ? ' future' : ''}`}
+                tabIndex={0}
+                aria-label={`${MONTHS_FULL[m]} : ${money(v, cur)}`}
+              >
                 <span className="bar" style={{ height: `${(v / top) * 100}%` }} />
                 <span className="tip" role="tooltip"><strong>{money(v, cur)}</strong>{MONTHS_FULL[m]} {year}</span>
                 <span className="bar-label">{MONTHS_SHORT[m]}</span>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { money } from '@/lib/money';
+import { money, moneyAlt } from '@/lib/money';
 import { frDate, frDateTime } from '@/lib/dates';
 import { statusOf } from '@/lib/status';
 import { pubId } from '@/lib/ids';
@@ -47,8 +47,8 @@ export default function InvoiceTable({ invoices, received = false }) {
                         width: '30px',
                         height: '30px',
                         borderRadius: '50%',
-                        background: '#f1f5f9',
-                        color: '#475569',
+                        background: 'var(--bg)',
+                        color: 'var(--muted)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -66,7 +66,7 @@ export default function InvoiceTable({ invoices, received = false }) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span>{i.issue_date ? frDate(i.issue_date) : i.send_on ? `Envoi le ${frDateTime(i.send_on, i.send_tz)}` : '—'}</span>
                     {i.due_date && !['payee'].includes(i.status) && (
-                      <span className="sub" style={isLate ? { color: '#dc2626', fontWeight: 600 } : {}}>
+                      <span className="sub" style={isLate ? { color: 'var(--late)', fontWeight: 600 } : {}}>
                         échéance {frDate(i.due_date)}
                       </span>
                     )}
@@ -74,6 +74,13 @@ export default function InvoiceTable({ invoices, received = false }) {
                 </td>
                 <td className="n" style={{ fontWeight: 750, fontSize: '14.5px' }}>
                   {money(i.amount_due, i.currency)}
+                  {/* Équivalent dans la devise de l'entreprise, pour comparer les lignes entre elles
+                      sans repasser par la facture. On saute les montants qu'on ne saurait pas
+                      convertir : une conversion supposée pèserait plus que l'absence de valeur. */}
+                  {(() => {
+                    const equiv = moneyAlt(i.amount_due, i.currency);
+                    return equiv ? <span className="sub" style={{ fontWeight: 500 }}>soit {equiv}</span> : null;
+                  })()}
                 </td>
                 <td>
                   <span className={`status ${st.cls}`}>{st.label}</span>

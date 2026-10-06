@@ -57,8 +57,8 @@ export default async function Page({ searchParams }) {
 
       {/* 1. Métriques Équipe PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#f5f0ff', color: '#6e39c4' }}>
+        <div className="page-kpi-card" data-tone="violet">
+          <div className="page-kpi-icon">
             <Icon name="people" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -68,8 +68,8 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eef8f2', color: '#1a7f37' }}>
+        <div className="page-kpi-card" data-tone="green">
+          <div className="page-kpi-icon">
             <Icon name="calendar" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -79,8 +79,8 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+        <div className="page-kpi-card" data-tone="sky">
+          <div className="page-kpi-icon">
             <Icon name="link" size={18} />
           </div>
           <div className="page-kpi-info">

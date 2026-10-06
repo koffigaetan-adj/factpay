@@ -107,8 +107,8 @@ export default async function Page({ searchParams }) {
 
       {/* KPI Cards style PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eef2ff', color: '#4338ca' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="cash" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -118,13 +118,13 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card" style={pendingAdvances.length > 0 ? { borderColor: '#fed7aa', background: '#fffaf0' } : {}}>
-          <div className="page-kpi-icon" style={{ background: pendingAdvances.length > 0 ? '#ffedd5' : '#f1f5f9', color: pendingAdvances.length > 0 ? '#ea580c' : '#64748b' }}>
+        <div className={`page-kpi-card ${pendingAdvances.length > 0 ? 'is-alert' : ''}`.trim()} data-tone={pendingAdvances.length > 0 ? 'amber' : 'neutral'}>
+          <div className="page-kpi-icon">
             <Icon name="clock" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">À régler</span>
-            <span className="page-kpi-value" style={{ color: pendingAdvances.length > 0 ? '#ea580c' : 'var(--ink)' }}>
+            <span className="page-kpi-value" data-tint={pendingAdvances.length > 0 ? 'true' : undefined}>
               {money(pendingAmount, cur)}
             </span>
             <span className="page-kpi-hint">
@@ -133,13 +133,13 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+        <div className="page-kpi-card" data-tone="green">
+          <div className="page-kpi-icon">
             <Icon name="check" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Versés</span>
-            <span className="page-kpi-value" style={{ color: '#059669' }}>{money(paidAmount, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(paidAmount, cur)}</span>
             <span className="page-kpi-hint">{paidAdvances.length} payé{paidAdvances.length > 1 ? 's' : ''}</span>
           </div>
         </div>
@@ -194,8 +194,8 @@ export default async function Page({ searchParams }) {
                               width: '32px',
                               height: '32px',
                               borderRadius: '50%',
-                              background: '#f1f5f9',
-                              color: '#475569',
+                              background: 'var(--bg)',
+                              color: 'var(--muted)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',

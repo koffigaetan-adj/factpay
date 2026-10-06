@@ -76,8 +76,8 @@ export default async function Page({ searchParams }) {
       {/* 2. Métriques mensuelles PayFit compact */}
       {allPayslips.length > 0 && (
         <div className="page-kpi-grid">
-          <div className="page-kpi-card">
-            <div className="page-kpi-icon" style={{ background: '#f5f0ff', color: '#6e39c4' }}>
+          <div className="page-kpi-card" data-tone="violet">
+            <div className="page-kpi-icon">
               <Icon name="payslip" size={18} />
             </div>
             <div className="page-kpi-info">
@@ -87,26 +87,26 @@ export default async function Page({ searchParams }) {
             </div>
           </div>
 
-          <div className="page-kpi-card">
-            <div className="page-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+          <div className="page-kpi-card" data-tone="green">
+            <div className="page-kpi-icon">
               <Icon name="check" size={18} />
             </div>
             <div className="page-kpi-info">
               <span className="page-kpi-label">Net à verser</span>
-              <span className="page-kpi-value" style={{ color: '#059669' }}>{money(totalNet, company.currency)}</span>
+              <span className="page-kpi-value" data-tint>{money(totalNet, company.currency)}</span>
               <span className="page-kpi-hint">
                 {totalPaid > 0 ? `${money(totalPaid, company.currency)} payés` : `${totalValidToPay} prêts`}
               </span>
             </div>
           </div>
 
-          <div className="page-kpi-card">
-            <div className="page-kpi-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
+          <div className="page-kpi-card" data-tone="amber">
+            <div className="page-kpi-icon">
               <Icon name="cash" size={18} />
             </div>
             <div className="page-kpi-info">
               <span className="page-kpi-label">Cotisations CNSS</span>
-              <span className="page-kpi-value" style={{ color: '#b45309' }}>{money(totalCnss, company.currency)}</span>
+              <span className="page-kpi-value" data-tint>{money(totalCnss, company.currency)}</span>
               <span className="page-kpi-hint">Part salariale & patronale</span>
             </div>
           </div>

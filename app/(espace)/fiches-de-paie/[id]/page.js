@@ -18,6 +18,7 @@ export default async function Page({ params, searchParams }) {
   if (!payslip) notFound();
 
   const verifyUrl = payslipVerifyUrl(payslip);
+  // Noir/blanc stricts : voir la facture, un lecteur de QR code ne tolère ni thème ni accent.
   const qrCode = await QRCode.toDataURL(verifyUrl, {
     margin: 1,
     width: 200,

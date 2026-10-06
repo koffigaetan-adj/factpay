@@ -15,6 +15,7 @@ import { paymentMethodOptions, paymentItems, whatsappLink } from '@/lib/payment'
 import BrandBadge from '@/components/BrandBadge';
 import Icon from '@/components/Icon';
 import Modal from '@/components/Modal';
+import SubmitButton from '@/components/SubmitButton';
 import QRCode from 'qrcode';
 import { shiftPeriod, describePeriod } from '@/lib/period';
 import { lineNote, withholdingLabel } from '@/lib/invoice-text';
@@ -61,6 +62,8 @@ export default async function Page({ params, searchParams }) {
   }
   const payItems = paymentItems(company, enabledPayKeys);
 
+  // Noir/blanc stricts : un lecteur de QR code ne tolère ni thème ni couleur d'accent.
+  // Le fond reste blanc via le style de l'image, y compris en thème sombre.
   const qrDataUrl = inv.verify_code
     ? await QRCode.toDataURL(verifyUrl(inv.verify_code), {
         margin: 1,
@@ -100,26 +103,26 @@ export default async function Page({ params, searchParams }) {
             </Link>
           )}
           <form action={duplicateDocument} className="inline">{hidden}
-            <button className="secondary">
+            <SubmitButton className="secondary" pendingText="Duplication...">
               <Icon name="copy" size={16} />{nextMonth ? `Dupliquer pour ${nextMonth}` : 'Dupliquer'}
-            </button>
+            </SubmitButton>
           </form>
           {canResend && (
             <form action={sendInvoiceNow} className="inline">{hidden}
-              <button className={neverSent ? '' : 'secondary'}>
+              <SubmitButton className={neverSent ? '' : 'secondary'} pendingText={neverSent ? 'Envoi…' : 'Renvoi…'}>
                 <Icon name="send" size={16} />{neverSent ? 'Envoyer maintenant' : 'Renvoyer au client'}
-              </button>
+              </SubmitButton>
             </form>
           )}
           {quote && ['emise', 'envoyee', 'acceptee'].includes(inv.status) && (
             <form action={convertQuote} className="inline">{hidden}
-              <button>
+              <SubmitButton pendingText="Transformation...">
                 <Icon name="invoice" size={16} />Transformer en facture
-              </button>
+              </SubmitButton>
             </form>
           )}
           {!quote && ['emise', 'envoyee', 'signalee'].includes(inv.status) && (
-            <Modal label="Marquer comme payée" icon="check" title="Enregistrer le paiement" buttonClass="">
+            <Modal label={inv.status === 'signalee' ? 'Valider le paiement signalé' : 'Marquer comme payée'} icon="check" title="Enregistrer le paiement" buttonClass="">
               <form action={confirmInvoicePayment} className="stack">{hidden}
                 <div className="row">
                   <div className="field"><span className="field-title">Date du paiement</span><DatePicker name="paid_on" required defaultValue={today()} max={today()} label="Date du paiement" /></div>
@@ -134,15 +137,15 @@ export default async function Page({ params, searchParams }) {
                   <input name="reference" maxLength={120} defaultValue={inv.payment_ref || ''} placeholder="Ex. ID de transaction, numéro de reçu" />
                 </label>
                 <label className="check"><input type="checkbox" name="notify" defaultChecked /><span>Envoyer au client sa facture marquée « payée »</span></label>
-                <div><button><Icon name="check" size={16} /> Confirmer le paiement</button></div>
+                <div><SubmitButton pendingText="Enregistrement..."><Icon name="check" size={16} /> Confirmer le paiement</SubmitButton></div>
               </form>
             </Modal>
           )}
           {!quote && inv.status === 'payee' && (
             <form action={resendReceipt} className="inline">{hidden}
-              <button className="secondary">
+              <SubmitButton className="secondary" pendingText="Renvoi...">
                 <Icon name="send" size={16} />Renvoyer la facture payée
-              </button>
+              </SubmitButton>
             </form>
           )}
         </div>
@@ -259,7 +262,7 @@ export default async function Page({ params, searchParams }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #A7F3D0', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--paid)', background: 'color-mix(in srgb, var(--paid) 10%, var(--paper))', padding: '2px 8px', borderRadius: '4px', border: '1px solid color-mix(in srgb, var(--paid) 30%, var(--paper))', textTransform: 'uppercase' }}>
                     ✓ Certifié Conforme
                   </span>
                   <Link href={`/v/${inv.verify_code}`} target="_blank" rel="noopener" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand-text)', textDecoration: 'underline' }}>
@@ -319,7 +322,15 @@ export default async function Page({ params, searchParams }) {
             </p>
           )}
           {draftlike && (
-            <form action={deleteInvoice} style={{ marginTop: 20 }}>{hidden}<button className="danger"><Icon name="trash" size={16} /> Supprimer le brouillon</button></form>
+            <div style={{ marginTop: 20 }}>
+              {/* Suppression irréversible : jamais un clic seul, toujours une confirmation comme pour l'annulation */}
+              <Modal label="Supprimer le brouillon" icon="trash" title="Supprimer le brouillon" buttonClass="danger">
+                <form action={deleteInvoice} className="stack">{hidden}
+                  <p className="help" style={{ margin: 0 }}>Le document, ses lignes et son numéro seront définitivement supprimés. Cette action est irréversible.</p>
+                  <div><SubmitButton className="danger" pendingText="Suppression..."><Icon name="trash" size={16} /> Supprimer définitivement</SubmitButton></div>
+                </form>
+              </Modal>
+            </div>
           )}
 
           {late && (
@@ -331,9 +342,9 @@ export default async function Page({ params, searchParams }) {
                   : 'Les relances automatiques sont désactivées (Paramètres → Factures).'}
               </p>
               <form action={remindNow}>{hidden}
-                <button className="secondary">
+                <SubmitButton className="secondary" pendingText="Relance...">
                   <Icon name="bell" size={16} />Relancer maintenant
-                </button>
+                </SubmitButton>
               </form>
             </div>
           )}
@@ -344,74 +355,23 @@ export default async function Page({ params, searchParams }) {
               <p className="help">Une copie part automatiquement le {inv.repeat_day} de chaque mois{inv.period ? ', avec la période du mois suivant' : ''}. Prochain envoi : <strong>{frDate(inv.repeat_next)}</strong>.{inv.repeat_count > 0 ? ` ${inv.repeat_count} déjà envoyée${inv.repeat_count > 1 ? 's' : ''}.` : ''}</p>
               <form action={setRepeat}>{hidden}
                 <input type="hidden" name="active" value="0" />
-                <button className="secondary">
+                <SubmitButton className="secondary" pendingText="Arrêt...">
                   <Icon name="close" size={16} />Arrêter la récurrence
-                </button>
+                </SubmitButton>
               </form>
             </div>
           )}
-          {!quote && ['emise', 'envoyee', 'signalee'].includes(inv.status) && (
+          {/* Le paiement ne se déclenche qu'à un seul endroit, dans la barre d'actions du haut :
+              cet encart ne fait que relayer le signal du client tant qu'il n'est pas validé. */}
+          {!quote && inv.status === 'signalee' && (
             <div className="status-box" id="statut">
-              <h3>Marquer comme payée</h3>
-              {inv.status === 'signalee' ? (
-                <div style={{ padding: '14px 16px', background: 'color-mix(in srgb, var(--brand) 10%, var(--paper))', border: '1.5px solid var(--brand)', borderRadius: '8px', marginBottom: '16px' }}>
-                  <div style={{ fontWeight: '700', color: 'var(--ink)', marginBottom: '4px' }}>
-                    Paiement signalé par le client
-                  </div>
-                  <p style={{ margin: '0 0 12px 0', fontSize: '13.5px', color: 'var(--muted)' }}>
-                    Signalé le <strong>{frDate(inv.paid_declared_at)}</strong> avec la référence <strong>{inv.payment_ref}</strong>.
-                  </p>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <a className="button secondary" href={`/factures/${pubId('facture', inv.id)}/justificatif`} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                      <Icon name="file" size={16} /> Voir le justificatif
-                    </a>
-                    <Modal label="Valider et marquer payée" icon="check" title="Enregistrer le paiement" buttonClass="">
-                      <form action={confirmInvoicePayment} className="stack">{hidden}
-                        <div className="row">
-                          <div className="field"><span className="field-title">Date du paiement</span><DatePicker name="paid_on" required defaultValue={today()} max={today()} label="Date du paiement" /></div>
-                          <label>Moyen
-                            <select name="method" defaultValue="">
-                              <option value="">Non précisé</option>
-                              {paymentMethodOptions(company).map((m) => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                          </label>
-                        </div>
-                        <label>Référence <span className="help">facultatif</span>
-                          <input name="reference" maxLength={120} defaultValue={inv.payment_ref || ''} placeholder="Ex. ID de transaction, numéro de reçu" />
-                        </label>
-                        <label className="check"><input type="checkbox" name="notify" defaultChecked /><span>Envoyer au client sa facture marquée « payée »</span></label>
-                        <div><button><Icon name="check" size={16} /> Confirmer le paiement</button></div>
-                      </form>
-                    </Modal>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <p className="help" style={{ margin: 0 }}>
-                    Même si le client n'a rien signalé : par exemple un paiement en espèces ou un virement reçu directement.
-                  </p>
-                  <div>
-                    <Modal label="Marquer comme payée" icon="check" title="Enregistrer le paiement" buttonClass="secondary">
-                      <form action={confirmInvoicePayment} className="stack">{hidden}
-                        <div className="row">
-                          <div className="field"><span className="field-title">Date du paiement</span><DatePicker name="paid_on" required defaultValue={today()} max={today()} label="Date du paiement" /></div>
-                          <label>Moyen
-                            <select name="method" defaultValue="">
-                              <option value="">Non précisé</option>
-                              {paymentMethodOptions(company).map((m) => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                          </label>
-                        </div>
-                        <label>Référence <span className="help">facultatif</span>
-                          <input name="reference" maxLength={120} defaultValue={inv.payment_ref || ''} placeholder="Ex. ID de transaction, numéro de reçu" />
-                        </label>
-                        <label className="check"><input type="checkbox" name="notify" defaultChecked /><span>Envoyer au client sa facture marquée « payée »</span></label>
-                        <div><button><Icon name="check" size={16} /> Confirmer le paiement</button></div>
-                      </form>
-                    </Modal>
-                  </div>
-                </div>
-              )}
+              <h3>Paiement signalé par le client</h3>
+              <div style={{ padding: '14px 16px', background: 'color-mix(in srgb, var(--brand) 10%, var(--paper))', border: '1.5px solid var(--brand)', borderRadius: '8px' }}>
+                <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--muted)' }}>
+                  Signalé le <strong>{frDate(inv.paid_declared_at)}</strong>{inv.payment_ref ? <> avec la référence <strong>{inv.payment_ref}</strong></> : ''}.
+                  Valide-le depuis « Valider le paiement signalé » en haut de page.
+                </p>
+              </div>
             </div>
           )}
           <div className="actions" style={{ marginTop: '20px', flexWrap: 'wrap' }}>
@@ -426,7 +386,7 @@ export default async function Page({ params, searchParams }) {
                       {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>le {d} du mois</option>)}
                     </select>
                   </label>
-                  <div><button><Icon name="repeat" size={16} /> Activer la récurrence</button></div>
+                  <div><SubmitButton pendingText="Activation..."><Icon name="repeat" size={16} /> Activer la récurrence</SubmitButton></div>
                 </form>
               </Modal>
             )}
@@ -435,7 +395,7 @@ export default async function Page({ params, searchParams }) {
                 <form action={reopenPayment} className="stack">
                   {hidden}
                   <p className="help" style={{ margin: 0 }}>À utiliser si la facture a été marquée payée par erreur. Elle repasse en attente et sort de l'encaissé.{inv.receipt_sent_at ? ' Le client a déjà reçu la facture payée : préviens-le.' : ''}</p>
-                  <div><button className="danger"><Icon name="repeat" size={16} /> Confirmer la remise en attente</button></div>
+                  <div><SubmitButton className="danger" pendingText="Validation..."><Icon name="repeat" size={16} /> Confirmer la remise en attente</SubmitButton></div>
                 </form>
               </Modal>
             )}
@@ -448,7 +408,7 @@ export default async function Page({ params, searchParams }) {
                     <textarea name="reason" rows={3} maxLength={500} placeholder="Ex. Erreur sur le nombre de jours, une facture corrigée va suivre." />
                   </label>
                   <label className="check"><input type="checkbox" name="notify" /><span>Prévenir le client par e-mail (avec l'avoir en pièce jointe)</span></label>
-                  <div><button className="danger"><Icon name="trash" size={16} /> Confirmer l'annulation</button></div>
+                  <div><SubmitButton className="danger" pendingText="Annulation..."><Icon name="trash" size={16} /> Confirmer l'annulation</SubmitButton></div>
                 </form>
               </Modal>
             )}

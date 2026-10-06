@@ -44,8 +44,8 @@ export default async function Page({ searchParams }) {
 
       {/* KPI Cards style PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eef2ff', color: '#4338ca' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="inbox" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -55,24 +55,24 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="clock" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">À examiner</span>
-            <span className="page-kpi-value" style={{ color: '#2563eb' }}>{money(waitingAmount, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(waitingAmount, cur)}</span>
             <span className="page-kpi-hint">{waitingQuotes.length} en attente</span>
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+        <div className="page-kpi-card" data-tone="green">
+          <div className="page-kpi-icon">
             <Icon name="check" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Validés par vous</span>
-            <span className="page-kpi-value" style={{ color: '#059669' }}>{money(acceptedAmount, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(acceptedAmount, cur)}</span>
             <span className="page-kpi-hint">{acceptedQuotes.length} approuvé{acceptedQuotes.length > 1 ? 's' : ''}</span>
           </div>
         </div>

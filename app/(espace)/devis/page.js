@@ -53,8 +53,8 @@ export default async function Page({ searchParams }) {
 
       {/* KPI Cards style PayFit compact */}
       <div className="page-kpi-grid">
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
+        <div className="page-kpi-card" data-tone="amber">
+          <div className="page-kpi-icon">
             <Icon name="quote" size={18} />
           </div>
           <div className="page-kpi-info">
@@ -64,35 +64,35 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+        <div className="page-kpi-card" data-tone="brand">
+          <div className="page-kpi-icon">
             <Icon name="clock" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">En attente</span>
-            <span className="page-kpi-value" style={{ color: '#2563eb' }}>{money(waitingAmount, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(waitingAmount, cur)}</span>
             <span className="page-kpi-hint">{waitingQuotes.length} en cours</span>
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+        <div className="page-kpi-card" data-tone="green">
+          <div className="page-kpi-icon">
             <Icon name="check" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Acceptés</span>
-            <span className="page-kpi-value" style={{ color: '#059669' }}>{money(acceptedAmount, cur)}</span>
+            <span className="page-kpi-value" data-tint>{money(acceptedAmount, cur)}</span>
             <span className="page-kpi-hint">{acceptedQuotes.length} signés</span>
           </div>
         </div>
 
-        <div className="page-kpi-card">
-          <div className="page-kpi-icon" style={{ background: '#f5f0ff', color: '#7c3aed' }}>
+        <div className="page-kpi-card" data-tone="violet">
+          <div className="page-kpi-icon">
             <Icon name="percent" size={18} />
           </div>
           <div className="page-kpi-info">
             <span className="page-kpi-label">Conversion</span>
-            <span className="page-kpi-value" style={{ color: '#7c3aed' }}>
+            <span className="page-kpi-value" data-tint>
               {totalDecided > 0 ? `${conversionRate}%` : '—'}
             </span>
             <span className="page-kpi-hint">

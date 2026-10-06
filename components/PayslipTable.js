@@ -8,7 +8,7 @@ import { deletePayslipAction } from '@/app/actions';
 
 const STATUS_MAP = {
   brouillon: { label: 'Brouillon', cls: 'draft', dotColor: 'var(--muted)' },
-  valide: { label: 'Validé', cls: 'check', dotColor: '#059669' },
+  valide: { label: 'Validé', cls: 'check', dotColor: 'var(--paid)' },
   paye: { label: 'Payé', cls: 'paid', dotColor: 'var(--brand)' },
 };
 

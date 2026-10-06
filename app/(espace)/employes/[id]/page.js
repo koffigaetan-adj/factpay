@@ -70,7 +70,7 @@ export default async function Page({ params, searchParams }) {
             {employee.end_date && <div><dt>Fin de contrat</dt><dd>{frDate(employee.end_date)}</dd></div>}
             {employee.cnss_number && <div><dt>N° CNSS</dt><dd>{employee.cnss_number}</dd></div>}
             {employee.id_card_number && <div><dt>N° Pièce d'identité</dt><dd>{employee.id_card_number}</dd></div>}
-            <div><dt>Solde congés</dt><dd><strong style={{ color: '#059669' }}>{employee.leave_balance || 0} jours</strong></dd></div>
+            <div><dt>Solde congés</dt><dd><strong style={{ color: 'var(--paid)' }}>{employee.leave_balance || 0} jours</strong></dd></div>
           </dl>
         </section>
 
@@ -150,7 +150,7 @@ export default async function Page({ params, searchParams }) {
         {employee.portal_token && (
           <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--line)', fontSize: '13px' }}>
             {employee.portal_token_expires_at && new Date(employee.portal_token_expires_at) <= new Date() ? (
-              <p style={{ margin: 0, color: '#D97706' }}>
+              <p style={{ margin: 0, color: 'var(--wait)' }}>
                 <strong>Ce lien est expiré.</strong> Le salarié ne peut plus ouvrir son portail.
                 Régénérez le lien pour lui en donner un nouveau.
               </p>
