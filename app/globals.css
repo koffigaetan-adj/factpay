@@ -759,8 +759,10 @@ tbody tr:hover:has(.row-link) { background: var(--bg); }
 td a.row-link { font-weight: 600; text-decoration: none; position: static; }
 td a.row-link::after { content: ""; position: absolute; inset: 0; z-index: 1; }
 /* Ligne entière cliquable : la case du lien principal ne sert pas de repère, la ligne oui
-   (sinon seule la première colonne serait cliquable) ; les autres liens et boutons restent au-dessus */
-td:has(> a.row-link) { position: static; }
+   (sinon seule la première colonne serait cliquable) ; les autres liens et boutons restent au-dessus.
+   Sans '>' : le lien est souvent dans un <div> (factures, clients, salariés) et, avec le combinateur,
+   la case restait relative, l'overlay ne couvrait que sa colonne. */
+td:has(a.row-link) { position: static; }
 tbody tr:has(.row-link) { cursor: pointer; }
 tbody tr:has(.row-link) :is(a, button, form):not(.row-link) { position: relative; z-index: 2; }
 td a.row-link:hover { text-decoration: underline; }
