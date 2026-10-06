@@ -33,17 +33,17 @@ export default async function Page({ params, searchParams }) {
   const withAlt = !!(inv.alt_currency && inv.alt_rate);
   let enabledPayKeys = null;
   if (inv.payment_methods) {
-    try { enabledPayKeys = JSON.parse(inv.payment_methods); } catch {}
+    try { enabledPayKeys = JSON.parse(inv.payment_methods); } catch { }
   }
   const payItems = paymentItems(co, enabledPayKeys);
 
   // QR Code d'authenticité généré côté serveur
   const qrDataUrl = inv.verify_code
     ? await QRCode.toDataURL(verifyUrl(inv.verify_code), {
-        margin: 1,
-        width: 180,
-        color: { dark: '#0F172A', light: '#FFFFFF' },
-      }).catch(() => null)
+      margin: 1,
+      width: 180,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
+    }).catch(() => null)
     : null;
 
   const docFingerprint = inv.verify_code ? fingerprint(inv, co.name) : null;
@@ -100,7 +100,7 @@ export default async function Page({ params, searchParams }) {
         <h2>Vous avez payé ?</h2>
         <p className="hint">Indiquez la référence du virement ou l'ID de transaction Mobile Money, et joignez une capture ou le reçu.</p>
         <Flash searchParams={searchParams} />
-        <label>Référence ou ID de transaction<input name="reference" required maxLength={120} placeholder="Ex. référence bancaire ou ID TMoney / Moov / Flooz" /></label>
+        <label>Référence ou ID de transaction<input name="reference" required maxLength={120} placeholder="Ex. référence transaction" /></label>
         <label>Justificatif <span className="help">image ou PDF, 4 Mo maximum</span>
           <input name="justificatif" type="file" accept="image/*,application/pdf" required />
         </label>
@@ -137,7 +137,7 @@ export default async function Page({ params, searchParams }) {
 
         {withAlt && <CurrencySwitch main={short(cur)} alt={short(inv.alt_currency)} />}
 
-        <div className="billed" style={{ background: '#F8FAFC', padding: '16px 20px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '24px' }}>
+        <div className="billed" style={{ background: 'color-mix(in srgb, var(--brand) 4%, var(--paper))', padding: '16px 20px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '24px' }}>
           <span className="sub" style={{ fontSize: '11.5px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--muted)' }}>
             {quote ? 'Destinataire' : 'Facturé à'}
           </span>
@@ -251,9 +251,9 @@ export default async function Page({ params, searchParams }) {
               </table>
             </div>
             {inv.number && (
-              <div className="pay-ref">
-                <span>Référence à indiquer lors du règlement :</span>
-                <strong>{inv.number}</strong>
+              <div className="pay-ref" style={{ marginTop: '12px', color: '#DC2626', fontWeight: 600, fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#DC2626' }}>Référence à indiquer lors du règlement :</span>
+                <strong style={{ color: '#DC2626', fontWeight: 800 }}>{inv.number}</strong>
               </div>
             )}
           </div>
@@ -267,8 +267,8 @@ export default async function Page({ params, searchParams }) {
             style={{
               marginTop: '28px',
               padding: '16px 20px',
-              background: '#F8FAFC',
-              border: '1px solid #E2E8F0',
+              background: 'color-mix(in srgb, var(--brand) 4%, var(--paper))',
+              border: '1px solid var(--line)',
               borderRadius: '10px',
               display: 'grid',
               gridTemplateColumns: '84px 1fr',
@@ -284,7 +284,7 @@ export default async function Page({ params, searchParams }) {
                   width: '76px',
                   height: '76px',
                   borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--line)',
                   background: '#FFFFFF',
                   padding: '3px'
                 }}
@@ -292,19 +292,19 @@ export default async function Page({ params, searchParams }) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #A7F3D0', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--paid, #059669)', background: 'color-mix(in srgb, var(--paid, #059669) 10%, var(--paper))', padding: '2px 8px', borderRadius: '4px', border: '1px solid color-mix(in srgb, var(--paid, #059669) 30%, var(--paper))', textTransform: 'uppercase' }}>
                   ✓ Document Certifié Conforme
                 </span>
                 <Link href={`/v/${inv.verify_code}`} style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand-text)', textDecoration: 'underline' }}>
                   Vérifier l'authenticité
                 </Link>
               </div>
-              <div style={{ fontSize: '11.5px', color: '#475569', lineHeight: 1.35, marginTop: '2px' }}>
+              <div style={{ fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.35, marginTop: '2px' }}>
                 Scannez le QR code pour attester de l'authenticité, du statut et de l'intégrité de ce document.
               </div>
-              <div style={{ fontSize: '11px', color: '#64748B' }}>
-                Code : <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>{formatCode(inv.verify_code)}</strong>
-                {docFingerprint && <> · Empreinte : <code style={{ color: '#0F172A', fontWeight: 600 }}>{docFingerprint}</code></>}
+              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                Code : <strong style={{ color: 'var(--ink)', fontFamily: 'monospace' }}>{formatCode(inv.verify_code)}</strong>
+                {docFingerprint && <> · Empreinte : <code style={{ color: 'var(--ink)', fontWeight: 600 }}>{docFingerprint}</code></>}
               </div>
             </div>
           </div>

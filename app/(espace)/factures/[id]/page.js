@@ -229,6 +229,12 @@ export default async function Page({ params, searchParams }) {
                   </tbody>
                 </table>
               </div>
+              {inv.number && (
+                <div className="pay-ref" style={{ marginTop: '12px', color: '#DC2626', fontWeight: 600, fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ color: '#DC2626' }}>Référence à indiquer lors du règlement :</span>
+                  <strong style={{ color: '#DC2626', fontWeight: 800 }}>{inv.number}</strong>
+                </div>
+              )}
             </div>
           )}
 
