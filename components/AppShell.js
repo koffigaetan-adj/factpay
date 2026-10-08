@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import Icon from '@/components/Icon';
+import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher';
 import { logout, flushDueSends } from '@/app/actions';
 import {
   WORKSPACES,
@@ -96,6 +97,7 @@ export default function AppShell({
 
   return (
     <div className={`app${open ? ' is-open' : ''}`}>
+      <SessionTimeoutWatcher />
       {/* 1. Header supérieur pleine largeur (style Payfit) */}
       <header className="app-topbar">
         <div className="topbar-left">

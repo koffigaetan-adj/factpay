@@ -483,9 +483,10 @@ export async function deleteAccount(fd) {
 
 // Apparence : claire (par défaut), sombre, ou automatique (appareil). Gardée un an dans ce navigateur.
 export async function setTheme(fd) {
-  const theme = ['auto', 'dark'].includes(fd.get('theme')) ? String(fd.get('theme')) : 'light';
+  const raw = String(fd.get('theme') || '');
+  const theme = ['auto', 'dark', 'light'].includes(raw) ? raw : 'light';
   const jar = await cookies();
-  if (theme === 'light') jar.delete('theme');
+  if (theme === 'auto') jar.delete('theme');
   else jar.set('theme', theme, { path: '/', maxAge: 365 * 86400, sameSite: 'lax' });
   revalidatePath('/', 'layout');
   back('/parametres?onglet=compte', 'Apparence enregistrée.');

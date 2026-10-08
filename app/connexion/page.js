@@ -11,12 +11,20 @@ export const metadata = { title: 'Connexion' };
 
 export default async function Page({ searchParams }) {
   if (await currentUser()) redirect('/tableau-de-bord');
+  const sp = (await searchParams) || {};
+  const isExpired = sp.expire === '1';
+
   return (
     <main className="auth">
       <Link href="/" className="logo"><Logo height={48} priority /></Link>
       <div className="card">
         <h1>Connexion</h1>
         <p className="hint">Accède à tes factures.</p>
+        {isExpired && (
+          <p className="flash err" role="alert">
+            Votre session a expiré après 1 heure sans activité. Veuillez vous reconnecter.
+          </p>
+        )}
         <Flash searchParams={searchParams} />
         <form action={login} className="stack">
           <label>Adresse e-mail<input name="email" type="email" required autoComplete="email" autoFocus /></label>

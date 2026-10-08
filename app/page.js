@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Logo from '@/components/Logo';
 import CurrencySwitch from '@/components/CurrencySwitch';
 import Icon from '@/components/Icon';
+import LandingThemeToggle from '@/components/LandingThemeToggle';
 import { currentUser } from '@/lib/auth';
 import { money, totals, convert, fixedRate } from '@/lib/money';
 
@@ -112,7 +113,7 @@ export default async function Home({ searchParams }) {
   return (
     <div className="lp-wrap">
       {deleted && (
-        <div style={{ background: '#FEE2E2', color: '#991B1B', padding: '12px 24px', textAlign: 'center', fontWeight: 600, fontSize: '14px' }}>
+        <div className="lp-deleted-banner">
           Votre compte et ses données ont été supprimés.
         </div>
       )}
@@ -125,6 +126,7 @@ export default async function Home({ searchParams }) {
               <Logo height={42} priority />
             </Link>
             <div className="lp-nav-links">
+              <LandingThemeToggle />
               <Link className="lp-nav-btn ghost hide-xs" href="/portail/connexion">
                 <Icon name="user" size={16} /> Espace Salarié
               </Link>
@@ -191,22 +193,22 @@ export default async function Home({ searchParams }) {
                   <div className="lp-doc-header">
                     <div>
                       <span className="lp-doc-badge">Émise & Prête</span>
-                      <strong style={{ display: 'block', fontSize: '15px', color: '#0F172A', marginTop: '2px' }}>
+                      <strong className="lp-doc-invoice-num">
                         Facture FAC-FP481-0014
                       </strong>
-                      <span style={{ fontSize: '12px', color: '#64748B' }}>Échéance : 15 octobre 2026</span>
+                      <span className="lp-doc-date">Échéance : 15 octobre 2026</span>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: '12.5px', color: '#475569' }}>
+                    <div className="lp-doc-company-info">
                       <strong>Studio Tech SARL</strong><br />
                       Lomé, Togo · NIF : 1000000000
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: '14px', fontSize: '13px' }}>
-                    <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                  <div className="lp-doc-client-box">
+                    <span className="lp-doc-client-label">
                       Facturé à
                     </span>
-                    <strong style={{ color: '#0F172A' }}>Société Lumière UEMOA</strong>
+                    <strong className="lp-doc-client-name">Société Lumière UEMOA</strong>
                   </div>
 
                   <table className="lp-doc-table">
@@ -221,7 +223,7 @@ export default async function Home({ searchParams }) {
                       {LINES.map((l) => (
                         <tr key={l.description}>
                           <td>{l.description}</td>
-                          <td className="n hide-xs" style={{ color: '#64748B' }}>{l.quantity} {l.unit}</td>
+                          <td className="n hide-xs lp-doc-qty">{l.quantity} {l.unit}</td>
                           <td className="n" style={{ fontWeight: 650 }}><Amount n={l.quantity * l.unit_price} /></td>
                         </tr>
                       ))}
@@ -235,7 +237,7 @@ export default async function Home({ searchParams }) {
                     </div>
                     <div className="lp-doc-totals-row">
                       <span>Retenue à la source (5 %)</span>
-                      <span style={{ color: '#DC2626', fontWeight: 600 }}><Amount n={T.withholding} minus /></span>
+                      <span className="lp-doc-withholding"><Amount n={T.withholding} minus /></span>
                     </div>
                     <div className="lp-doc-totals-row final">
                       <span>Net à payer</span>
@@ -309,7 +311,7 @@ export default async function Home({ searchParams }) {
       </section>
 
       {/* CONÇU POUR L'AFRIQUE DE L'OUEST */}
-      <section className="lp-section" style={{ background: '#FFFFFF', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+      <section className="lp-section lp-section-alt">
         <div className="lp-container">
           <div className="lp-section-head">
             <div className="lp-badge">
@@ -350,44 +352,44 @@ export default async function Home({ searchParams }) {
               <p className="lp-hero-desc">
                 FactPay distingue précisément ce que vous facturez, ce que vos clients ont effectivement réglé, les retenues fiscales appliquées et vos provisions pour cotisations sociales (CNSS).
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px', color: '#334155' }}>
+              <div className="lp-check-list">
+                <div className="lp-check-item">
                   <span style={{ color: '#059669', display: 'inline-flex' }}><Icon name="check" size={18} /></span>
                   <span><strong>Zéro surprise fiscale :</strong> vos provisions sont calculées automatiquement.</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px', color: '#334155' }}>
+                <div className="lp-check-item">
                   <span style={{ color: '#059669', display: 'inline-flex' }}><Icon name="check" size={18} /></span>
                   <span><strong>Gestion des avoirs :</strong> annulation propre et conforme en comptabilité.</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px', color: '#334155' }}>
+                <div className="lp-check-item">
                   <span style={{ color: '#059669', display: 'inline-flex' }}><Icon name="check" size={18} /></span>
                   <span><strong>Relances automatisées :</strong> rappels par e-mail programmés sans effort.</span>
                 </div>
               </div>
             </div>
 
-            <div className="lp-mockup" style={{ padding: '28px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <strong style={{ fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="lp-mockup lp-mockup-cash">
+              <div className="lp-cash-head">
+                <strong className="lp-cash-title">
                   <Icon name="trendingUp" size={18} /> Tableau de bord financier 2026
                 </strong>
                 <span className="lp-doc-badge">Temps Réel</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="lp-cash-list">
                 {NET.map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: r.rule ? '2px solid #0F172A' : '1px solid #F1F5F9' }}>
+                  <div key={i} className={`lp-cash-row${r.rule ? ' rule' : ''}`}>
                     <div>
-                      <div style={{ fontSize: '13.5px', color: '#475569', fontWeight: 550 }}>{r.label}</div>
-                      {r.note && <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>{r.note}</div>}
+                      <div className="lp-cash-label">{r.label}</div>
+                      {r.note && <div className="lp-cash-note">{r.note}</div>}
                     </div>
-                    <div style={{ fontSize: '14.5px', fontWeight: 700, color: r.value < 0 ? '#DC2626' : '#0F172A' }}>
+                    <div className={`lp-cash-val${r.value < 0 ? ' neg' : ''}`}>
                       {r.value < 0 ? `− ${money(-r.value, 'XOF')}` : money(r.value, 'XOF')}
                     </div>
                   </div>
                 ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', marginTop: '4px' }}>
-                  <strong style={{ fontSize: '16px', color: 'var(--brand)' }}>Net disponible réel</strong>
-                  <strong style={{ fontSize: '19px', color: 'var(--brand)' }}>{money(3825000, 'XOF')}</strong>
+                <div className="lp-cash-total">
+                  <span>Net disponible réel</span>
+                  <strong className="lp-cash-net">{money(3825000, 'XOF')}</strong>
                 </div>
               </div>
             </div>
@@ -396,7 +398,7 @@ export default async function Home({ searchParams }) {
       </section>
 
       {/* FAQ */}
-      <section className="lp-section" style={{ background: '#FFFFFF', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+      <section className="lp-section lp-section-alt">
         <div className="lp-container">
           <div className="lp-section-head">
             <div className="lp-badge">

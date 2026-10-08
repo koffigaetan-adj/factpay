@@ -37,7 +37,7 @@ export default async function Page({ searchParams }) {
   const sp = await searchParams;
   const tab = TABS[sp.onglet] ? sp.onglet : 'compte';
   const themeCookie = (await cookies()).get('theme')?.value;
-  const theme = ['auto', 'dark'].includes(themeCookie) ? themeCookie : 'light';
+  const theme = ['auto', 'dark', 'light'].includes(themeCookie) ? themeCookie : 'light';
   const profile = tab === 'compte' ? await one('SELECT first_name, last_name, email, avatar_key, avatar_updated_at FROM users WHERE id = $1', [user.id]) : null;
 
   return (

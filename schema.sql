@@ -316,6 +316,10 @@ ALTER TABLE companies ALTER COLUMN fp_code SET DEFAULT nextval('company_fp_code'
 
 CREATE UNIQUE INDEX IF NOT EXISTS companies_fp_code ON companies (fp_code);
 
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sending_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS invoices_sending ON invoices (status, sending_at);
+
 CREATE TABLE IF NOT EXISTS rate_limits (
     bucket TEXT NOT NULL,
     key TEXT NOT NULL,
@@ -327,9 +331,6 @@ CREATE INDEX IF NOT EXISTS rate_limits_bucket_key ON rate_limits (bucket, key, a
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS account_holder TEXT NOT NULL DEFAULT '';
 
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS send_tz TEXT NOT NULL DEFAULT '';
-
-ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sending_at TIMESTAMPTZ;
-CREATE INDEX IF NOT EXISTS invoices_sending ON invoices (status, sending_at);
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id SERIAL PRIMARY KEY,
@@ -420,20 +421,15 @@ CREATE INDEX IF NOT EXISTS payslips_employee_idx ON payslips (employee_id);
 
 CREATE INDEX IF NOT EXISTS payslips_period_idx ON payslips (company_id, period_year, period_month);
 
--- Lignes libres d'un bulletin : ce que le salaire du mois ne sait pas prévoir. Une prime
--- exceptionnelle, un remboursement de frais, une retenue pour casse… Chacune est soit un
--- ajout au brut, soit une retenue sur le net. Les rubriques habituelles (salaire de base,
--- indemnités, CNSS) restent des colonnes du bulletin : elles alimentent les rapports, le
--- tableau de bord et le CSV, et une ligne libre ne les remplace pas.
 CREATE TABLE IF NOT EXISTS payslip_lines (
-  id SERIAL PRIMARY KEY,
-  payslip_id INTEGER NOT NULL REFERENCES payslips(id) ON DELETE CASCADE,
-  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  position INTEGER NOT NULL DEFAULT 0,
-  kind TEXT NOT NULL DEFAULT 'ajout',
-  label TEXT NOT NULL DEFAULT '',
-  amount DOUBLE PRECISION NOT NULL DEFAULT 0
-);
+    id SERIAL PRIMARY KEY,
+    payslip_id INTEGER NOT NULL REFERENCES payslips(id) ON DELETE CASCADE,
+    company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL DEFAULT 'ajout',
+    label TEXT NOT NULL DEFAULT '',
+    amount DOUBLE PRECISION NOT NULL DEFAULT 0
+  );
 
 CREATE INDEX IF NOT EXISTS payslip_lines_payslip_idx ON payslip_lines (payslip_id, position);
 
@@ -554,6 +550,74 @@ CREATE TABLE IF NOT EXISTS company_announcements (
   );
 
 CREATE INDEX IF NOT EXISTS company_announcements_company ON company_announcements (company_id, created_at DESC);
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS cnss_number TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS id_card_number TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_title TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS department TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS contract_type TEXT NOT NULL DEFAULT 'CDI';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS hire_date TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS end_date TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS base_salary DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'tmoney';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS payment_details TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'actif';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'XOF';
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS seniority_bonus DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS transport_allowance DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS function_allowance DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS other_allowances DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS overtime_amount DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS gross_salary DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS cnss_employee_rate DOUBLE PRECISION NOT NULL DEFAULT 4.0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS cnss_employee_amount DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS tax_salary_amount DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS salary_advances DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS other_deductions DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS total_deductions DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS net_salary DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS cnss_employer_rate DOUBLE PRECISION NOT NULL DEFAULT 17.5;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS cnss_employer_amount DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS total_employer_cost DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS payment_reference TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE payslips ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 -- Vérification : liste les tables réellement présentes dans la base.
 SELECT table_name FROM information_schema.tables
 WHERE table_schema = 'public' ORDER BY table_name;
