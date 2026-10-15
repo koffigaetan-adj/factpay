@@ -37,12 +37,13 @@ export default function SessionTimeoutWatcher() {
         return;
       }
 
-      // Si l'utilisateur est actif et qu'au moins 2 minutes se sont écoulées, on rafraîchit la session serveur
-      if (now - lastPingRef.current >= PING_INTERVAL_MS) {
+      // Si l'utilisateur a été actif et qu'au moins 2 minutes se sont écoulées, on rafraîchit la session serveur
+      const wasActiveSinceLastPing = lastActiveRef.current > lastPingRef.current;
+      if (wasActiveSinceLastPing && (now - lastPingRef.current >= PING_INTERVAL_MS)) {
         lastPingRef.current = now;
         fetch('/api/auth/touch', { method: 'POST' })
           .then((res) => {
-            if (!res.ok) {
+            if (res.status === 401) {
               triggerLogout();
             }
           })

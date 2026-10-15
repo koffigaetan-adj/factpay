@@ -22,7 +22,7 @@ export default async function Page({ searchParams }) {
         <p className="hint">Accède à tes factures.</p>
         {isExpired && (
           <p className="flash err" role="alert">
-            Votre session a expiré après 1 heure sans activité. Veuillez vous reconnecter.
+            Votre session a expiré sans activité. Veuillez vous reconnecter.
           </p>
         )}
         <Flash searchParams={searchParams} />

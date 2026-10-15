@@ -115,7 +115,7 @@ export default async function Page({ params, searchParams }) {
         <header className="sheet-head">
           <div>
             <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: '4px' }}>
-              Document Officiel
+              Document
             </div>
             <h1 style={{ margin: '0 0 4px', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
               {word} {inv.number}

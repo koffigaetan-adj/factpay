@@ -32,8 +32,9 @@ test('session : prolonge l’expiration de 1 heure lors d’une activité', asyn
   await q(`INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`, [hashed, u.id]);
   const before = await one(`SELECT expires_at FROM sessions WHERE id = $1`, [hashed]);
 
-  // Touch / prolongement
-  await q(`UPDATE sessions SET expires_at = now() + interval '1 hour' WHERE id = $1 AND expires_at > now()`, [hashed]);
+  // Touch / prolongement avec RETURNING id comme dans touchSession()
+  const updated = await one(`UPDATE sessions SET expires_at = now() + interval '1 hour' WHERE id = $1 AND expires_at > now() RETURNING id`, [hashed]);
+  assert.ok(updated, 'La session active est bien prolongée et renvoie son id');
   const after = await one(`SELECT expires_at FROM sessions WHERE id = $1`, [hashed]);
 
   assert.ok(new Date(after.expires_at) > new Date(before.expires_at), 'L’expiration a bien été repoussée');

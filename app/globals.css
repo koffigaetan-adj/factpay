@@ -2135,19 +2135,61 @@ details.cancel form { margin-top: 12px; }
   gap: 8px;
   background: var(--selected-bg);
   color: var(--selected-fg);
-  border: none;
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.dash-action-btn svg {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .dash-action-btn:hover {
-  background: #23272f;
+  background: color-mix(in srgb, var(--selected-bg) 85%, var(--brand));
+  color: var(--selected-fg);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.dash-action-btn:active,
+.dash-action-btn[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--selected-bg) 75%, var(--brand));
+  color: var(--selected-fg);
+  transform: translateY(0);
+}
+
+.dash-action-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* Mode sombre : garantit une visibilité et un contraste parfaits au survol et à l'état actif/ouvert */
+:root[data-theme="dark"] .dash-action-btn,
+:root:not([data-theme="light"]) .dash-action-btn {
+  background: #E6EBF2;
+  color: #10161F;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="dark"] .dash-action-btn:hover,
+:root:not([data-theme="light"]) .dash-action-btn:hover {
+  background: #FFFFFF;
+  color: #10161F;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .dash-action-btn:active,
+:root[data-theme="dark"] .dash-action-btn[aria-expanded="true"],
+:root:not([data-theme="light"]) .dash-action-btn:active,
+:root:not([data-theme="light"]) .dash-action-btn[aria-expanded="true"] {
+  background: #FFFFFF;
+  color: #10161F;
+  box-shadow: 0 0 0 2px var(--brand), 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .dash-action-dropdown {
@@ -2162,6 +2204,11 @@ details.cancel form { margin-top: 12px; }
   padding: 8px;
   z-index: 100;
   animation: fadeIn 0.15s ease-out;
+}
+
+:root[data-theme="dark"] .dash-action-dropdown,
+:root:not([data-theme="light"]) .dash-action-dropdown {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
 .dash-action-group {
