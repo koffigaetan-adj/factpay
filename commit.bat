@@ -203,13 +203,30 @@ if /i "!TARGET_BRANCH!"=="staging" (
     )
 
     echo.
-    echo [RETOUR] Retour sur la branche staging...
-    git checkout staging
-
-    echo.
     echo ======================================================
     echo  [PROD OK] Deploiement sur main termine avec succes !
     echo ======================================================
+    echo.
+    echo Sur quel environnement souhaites-tu te positionner maintenant ?
+    echo   [1] staging  (pre-production) [Defaut]
+    echo   [2] main     (production)
+    echo.
+    set "FINAL_ENV=1"
+    set /p "FINAL_ENV=Ton choix (1 ou 2) [1] : "
+
+    if "!FINAL_ENV!"=="2" (
+        echo.
+        echo [OK] Tu restes sur la branche main (production).
+    ) else (
+        echo.
+        echo Basculement vers la branche staging (pre-production)...
+        git checkout staging
+        if errorlevel 1 (
+            echo [ERREUR] Impossible de basculer sur staging.
+        ) else (
+            echo [OK] Tu es maintenant sur la branche staging (pre-production).
+        )
+    )
 )
 
 goto end
