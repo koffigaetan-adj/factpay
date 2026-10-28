@@ -37,8 +37,10 @@ export default function SessionTimeoutWatcher() {
         return;
       }
 
-      // Si l'utilisateur est actif et qu'au moins 2 minutes se sont écoulées, on rafraîchit la session serveur
-      if (now - lastPingRef.current >= PING_INTERVAL_MS) {
+      // On ne rafraîchit la session que si l'utilisateur a été actif depuis le dernier ping :
+      // un onglet laissé ouvert sans activité doit bien expirer après 1 heure.
+      const wasActive = lastActiveRef.current > lastPingRef.current;
+      if (wasActive && now - lastPingRef.current >= PING_INTERVAL_MS) {
         lastPingRef.current = now;
         fetch('/api/auth/touch', { method: 'POST' })
           .then((res) => {
